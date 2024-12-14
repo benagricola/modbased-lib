@@ -1,3 +1,5 @@
+import { IReadRegisterOptions, IWriteRegisterOptions, IDiscoverOptions, ILoadDefinitionOptions, IModbusCommunicationOptions, ILoadDefinitionLoaderOptions } from "./Communication";
+
 // Modbus constants
 export const ModbusMaxAddress = 127;
 
@@ -29,56 +31,42 @@ export enum DeviceRegisterType {
     Control = "control",
 }
 
-export type TDeviceRegisterOptions = {
-    [key: number]: string;
-};
-
-export type TDeviceRegister = {
+// Device register definitions
+export type TDeviceRegisterDefinition = {
     name: string;
     type: DeviceRegisterType;
     description: string;
-    options?: TDeviceRegisterOptions;
+    options?: { [value: number]: string };
     displayFormat?(response: number[]): string;
     writeFormat?(value: string): number[];
 }
+export type TDeviceRegisterDefinitions = {
+    [address: string]: TDeviceRegisterDefinition;
+}
+export type TDeviceRegisterValue = number;
+
 export type TDeviceRegisters = {
-    [address: string]: TDeviceRegister;
+    [address: string]: TDeviceRegisterValue;
 }
 
 // Device coil types
-export type TDeviceCoil = {
+export type TDeviceCoilDefinition = {
     name: string;
     description: string;
 }
-export type TDeviceCoils = {
-    [address: string]: TDeviceCoil;
+export type TDeviceCoilDefinitions = {
+    [address: string]: TDeviceCoilDefinition;
 };
 
-export type TDeviceDefinitions = [TDeviceRegisters, TDeviceCoils];
+export type TDeviceCoilValue = boolean;
 
-export interface IDiscoverOptions {
-    baudRate: number;
-    startAddress: number;
-    addressCount: number;
+export type TDeviceCoils = {
+    [address: string]: TDeviceCoilValue;
 }
 
-export interface IReadRegisterOptions {
-    address: number;
-    count: number;
-}
+export type TDeviceDefinitions = [TDeviceRegisterDefinitions, TDeviceCoilDefinitions];
 
-export interface IWriteRegisterOptions {
-    address: number;
-    value: number;
-}
-
-export interface IModbusDeviceOptions {
-    readRegisterFunction: (options: IReadRegisterOptions) => Promise<number[]>;
-    writeRegisterFunction: (options: IWriteRegisterOptions) => Promise<boolean>;
-    discoverFunction: (options: IDiscoverOptions) => Promise<TModbusDevice[]>;
-    loadDefinitions: () => Promise<TDeviceDefinitions>;
-}
-
+// Discoverable device types
 export interface IDiscoverableDevice {
     Discover(options: IDiscoverOptions): Promise<TModbusDevice[]>;
     TypeName: string;
@@ -99,8 +87,8 @@ export type TModbusDevice = {
     port?: number;
     baudRate?: number;
     address?: number;
-    coils: TDeviceCoils;
     registers: TDeviceRegisters;
+    coils: TDeviceCoils;
 };
 export type TModbusDevices = TModbusDevice[];
 
@@ -130,14 +118,20 @@ export abstract class Device implements TModbusDevice {
     manufacturer?: string | undefined;
     model?: string | undefined;
 
+    // Field definitions are shared between all instances
+    static registerDefinitions: TDeviceRegisterDefinitions = {};
+    static coilDefinitions: TDeviceCoilDefinitions = {};
+    static definitionsLoaded = false;
+
+    // Registers and coils are instance-specific
     registers: TDeviceRegisters = {};
-    coils: TDeviceCoils         = {};
+    coils: TDeviceCoils = {};
 
     static discoverFunction(_: IDiscoverOptions): Promise<TModbusDevice[]> {
         throw new Error("discoverFunction not implemented");
     }
 
-    static loadDefinitions(): [TDeviceRegisters, TDeviceCoils] {
+    static loadDefinitions(options?: ILoadDefinitionLoaderOptions): Promise<TDeviceDefinitions> {
         throw new Error("loadDefinitions not implemented");
     }
 
@@ -153,23 +147,28 @@ export abstract class Device implements TModbusDevice {
         return "Unknown Modbus Device";
     }
 
-    constructor(options?: IModbusDeviceOptions) {
-        // RRF does not support the 0x08 command with its
-        // inbuilt modbus-rtu implementation, so we build
-        // the command string manually here.
-        this.registers = {};
-        this.coils = {};
+    constructor(commOpts?: IModbusCommunicationOptions) {
 
-        if(options) {
-            if(options.readRegisterFunction) {
-                this.readRegisterFunction = options.readRegisterFunction;
+        if(commOpts) {
+            if(commOpts.readRegisterFunction) {
+                this.readRegisterFunction = commOpts.readRegisterFunction;
             }
-            if(options.writeRegisterFunction) {
-                this.writeRegisterFunction = options.writeRegisterFunction;
+            if(commOpts.writeRegisterFunction) {
+                this.writeRegisterFunction = commOpts.writeRegisterFunction;
             }
-            if(options.discoverFunction) {
-                Device.discoverFunction = options.discoverFunction;
+            if(commOpts.discoverFunction) {
+                Device.discoverFunction = commOpts.discoverFunction;
             }
+            if(commOpts.loadDefinitions) {
+                Device.loadDefinitions = commOpts.loadDefinitions;
+            }
+        }
+    }
+
+    static async LoadDefinitions(options?: ILoadDefinitionOptions): Promise<void> {
+        if(!this.definitionsLoaded || options?.forceLoad) {
+            [this.registerDefinitions, this.coilDefinitions] = await this.loadDefinitions(options?.loaderOptions);
+            this.definitionsLoaded = true;
         }
     }
 
