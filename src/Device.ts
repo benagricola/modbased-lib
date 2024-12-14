@@ -54,6 +54,8 @@ export type TDeviceCoils = {
     [address: string]: TDeviceCoil;
 };
 
+export type TDeviceDefinitions = [TDeviceRegisters, TDeviceCoils];
+
 export interface IDiscoverOptions {
     baudRate: number;
     startAddress: number;
@@ -74,7 +76,7 @@ export interface IModbusDeviceOptions {
     readRegisterFunction: (options: IReadRegisterOptions) => Promise<number[]>;
     writeRegisterFunction: (options: IWriteRegisterOptions) => Promise<boolean>;
     discoverFunction: (options: IDiscoverOptions) => Promise<TModbusDevice[]>;
-    loadDefinitions: () => [TDeviceRegisters, TDeviceCoils];
+    loadDefinitions: () => Promise<TDeviceDefinitions>;
 }
 
 export interface IDiscoverableDevice {
