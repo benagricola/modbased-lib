@@ -1,11 +1,3 @@
-// Discovery command types
-export type DiscoveryCommand = {
-    rrfCode: string;
-    discoveryData: number[];
-    expectBytes: number;
-    processResponse?: (response: number[], device: ModbusDevice) => void;
-}
-
 // Modbus constants
 export const ModbusMaxAddress = 127;
 
@@ -37,67 +29,65 @@ export enum DeviceRegisterType {
     Control = "control",
 }
 
-export type DeviceRegisterOption = {
-    value: string;
-    text: string;
-}
-export type DeviceRegisterOptions = DeviceRegisterOption[];
+export type TDeviceRegisterOptions = {
+    [key: number]: string;
+};
 
-export type DeviceRegister = {
+export type TDeviceRegister = {
     name: string;
     type: DeviceRegisterType;
     description: string;
-    options?: DeviceRegisterOptions;
+    options?: TDeviceRegisterOptions;
     displayFormat?(response: number[]): string;
     writeFormat?(value: string): number[];
 }
-export type DeviceRegisters = {
-    [address: string]: DeviceRegister;
+export type TDeviceRegisters = {
+    [address: string]: TDeviceRegister;
 }
 
 // Device coil types
-export type DeviceCoil = {
+export type TDeviceCoil = {
     name: string;
     description: string;
 }
-export type DeviceCoils = {
-    [address: string]: DeviceCoil;
+export type TDeviceCoils = {
+    [address: string]: TDeviceCoil;
 };
 
-export interface DiscoveryOptions {
+export interface IDiscoverOptions {
     baudRate: number;
     startAddress: number;
     addressCount: number;
 }
 
-export interface ReadRegisterOptions {
+export interface IReadRegisterOptions {
     address: number;
     count: number;
 }
 
-export interface WriteRegisterOptions {
+export interface IWriteRegisterOptions {
     address: number;
     value: number;
 }
 
-export interface ModbusDeviceOptions {
-    readRegisterFunction: (options: ReadRegisterOptions) => Promise<number[]>;
-    writeRegisterFunction: (options: WriteRegisterOptions) => Promise<boolean>;
-    discoveryFunction: (options: DiscoveryOptions) => Promise<ModbusDevice[]>;
-    loadDefinitions: () => [DeviceRegisters, DeviceCoils];
+export interface IModbusDeviceOptions {
+    readRegisterFunction: (options: IReadRegisterOptions) => Promise<number[]>;
+    writeRegisterFunction: (options: IWriteRegisterOptions) => Promise<boolean>;
+    discoverFunction: (options: IDiscoverOptions) => Promise<TModbusDevice[]>;
+    loadDefinitions: () => [TDeviceRegisters, TDeviceCoils];
 }
 
-export interface DiscoverableDevice {
-    Discover(options: DiscoveryOptions): Promise<ModbusDevice[]>;
+export interface IDiscoverableDevice {
+    Discover(options: IDiscoverOptions): Promise<TModbusDevice[]>;
     TypeName: string;
 }
-export type DiscoverableDevices = DiscoverableDevice[];
+export type TDiscoverableDevices = IDiscoverableDevice[];
 
 // Modbus device types
-export type ModbusDevice = {
+export type TModbusDevice = {
     ToString(): string;
-    readRegisterFunction: (options: ReadRegisterOptions) => Promise<number[]>;
-    writeRegisterFunction: (options: WriteRegisterOptions) => Promise<boolean>;
+    readRegisterFunction: (options: IReadRegisterOptions) => Promise<number[]>;
+    writeRegisterFunction: (options: IWriteRegisterOptions) => Promise<boolean>;
     discoveryStatus?: string;
     protocolType: ModbusProtocol;
     deviceGroup: ModbusDeviceGroup;
@@ -107,10 +97,10 @@ export type ModbusDevice = {
     port?: number;
     baudRate?: number;
     address?: number;
-    coils: DeviceCoils;
-    registers: DeviceRegisters;
+    coils: TDeviceCoils;
+    registers: TDeviceRegisters;
 };
-export type ModbusDevices = ModbusDevice[];
+export type TModbusDevices = TModbusDevice[];
 
 /*
  * BaseModbusDevice
@@ -130,7 +120,7 @@ export type ModbusDevices = ModbusDevice[];
  * deviceGroup and deviceType triplet, and should implement a
  * discoveryCommand if this differs from its parent class.
  */
-export abstract class BaseModbusDevice implements ModbusDevice {
+export abstract class Device implements TModbusDevice {
     protocolType = ModbusProtocol.Unknown
     deviceGroup = ModbusDeviceGroup.Unknown
     deviceType = ModbusDeviceType.Unknown
@@ -138,24 +128,22 @@ export abstract class BaseModbusDevice implements ModbusDevice {
     manufacturer?: string | undefined;
     model?: string | undefined;
 
-    registers: DeviceRegisters = {};
-    coils: DeviceCoils         = {};
+    registers: TDeviceRegisters = {};
+    coils: TDeviceCoils         = {};
 
-    static discoveryMacroName: string = "_modbus_discover.g";
-
-    static discoveryFunction(_: DiscoveryOptions): Promise<ModbusDevice[]> {
-        throw new Error("discoveryFunction not implemented");
+    static discoverFunction(_: IDiscoverOptions): Promise<TModbusDevice[]> {
+        throw new Error("discoverFunction not implemented");
     }
 
-    static loadDefinitions(): [DeviceRegisters, DeviceCoils] {
+    static loadDefinitions(): [TDeviceRegisters, TDeviceCoils] {
         throw new Error("loadDefinitions not implemented");
     }
 
-    async readRegisterFunction(_: ReadRegisterOptions): Promise<number[]> {
+    async readRegisterFunction(_: IReadRegisterOptions): Promise<number[]> {
         throw new Error("readRegisterFunction not implemented");
     }
 
-    async writeRegisterFunction(_: WriteRegisterOptions): Promise<boolean> {
+    async writeRegisterFunction(_: IWriteRegisterOptions): Promise<boolean> {
         throw new Error("writeRegisterFunction not implemented");
     }
 
@@ -163,7 +151,7 @@ export abstract class BaseModbusDevice implements ModbusDevice {
         return "Unknown Modbus Device";
     }
 
-    constructor(options?: ModbusDeviceOptions) {
+    constructor(options?: IModbusDeviceOptions) {
         // RRF does not support the 0x08 command with its
         // inbuilt modbus-rtu implementation, so we build
         // the command string manually here.
@@ -177,21 +165,21 @@ export abstract class BaseModbusDevice implements ModbusDevice {
             if(options.writeRegisterFunction) {
                 this.writeRegisterFunction = options.writeRegisterFunction;
             }
-            if(options.discoveryFunction) {
-                BaseModbusDevice.discoveryFunction = options.discoveryFunction;
+            if(options.discoverFunction) {
+                Device.discoverFunction = options.discoverFunction;
             }
         }
     }
 
-    static async Discover(options: DiscoveryOptions): Promise<ModbusDevice[]> {
-        return await this.discoveryFunction(options);
+    static async Discover(options: IDiscoverOptions): Promise<TModbusDevice[]> {
+        return await this.discoverFunction(options);
     }
 
-    async ReadRegister(options: ReadRegisterOptions): Promise<number[]> {
+    async ReadRegister(options: IReadRegisterOptions): Promise<number[]> {
         return await this.readRegisterFunction(options);
     }
 
-    async WriteRegister(options: WriteRegisterOptions): Promise<boolean> {
+    async WriteRegister(options: IWriteRegisterOptions): Promise<boolean> {
         return await this.writeRegisterFunction(options);
     }
 }

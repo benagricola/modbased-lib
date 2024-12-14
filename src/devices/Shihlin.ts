@@ -1,5 +1,6 @@
-import { ModbusDevice, ModbusDeviceType, DiscoveryCommand, DeviceRegisters, DeviceRegisterType, DeviceRegisterOptions } from '../../Device';
-import { VFD } from './Generic-RTU';
+import { TModbusDevice, ModbusDeviceType,  DeviceRegisterType, TDeviceRegisterOptions, TDeviceRegisters, ModbusDeviceGroup } from '../Device';
+import { ModbusRTUDevice } from './RTU';
+import { ModbusRTUCompatibleVFD } from './VFD';
 
 // Map inverter model numbers to the relevant details
 export type ShihlinInverterModel = {
@@ -51,43 +52,35 @@ const writeInt = (value: string): number[] => {
     // Write a single integer value into a 16-bit register
     return [parseInt(value)];
 }
+const inputTerminalOptions: TDeviceRegisterOptions = {
+    0: "Forward Run",
+    1: "Reverse Run",
+    7: "Emergency Stop",
+    28: "Run (Inverter runs forward)",
+    29: "Forward / Reverse (use with Run signal, on = reverse)",
+    30: "External Reset",
+    31: "Stop (3-wire control with Forward / Reverse Run)",
+    41: "PWM Set Frequency",
+};
 
-const inputTerminalOptions: DeviceRegisterOptions = [
-    { value: "0", text: "Forward Run" },
-    { value: "1", text: "Reverse Run" },
-    { value: "7", text: "Emergency Stop" },
-    { value: "28", text: "Run (Inverter runs forward)" },
-    { value: "29", text: "Forward / Reverse (use with Run signal, on = reverse)" },
-    { value: "30", text: "External Reset" },
-    { value: "31", text: "Stop (3-wire control with Forward / Reverse Run)" },
-    { value: "41", text: "PWM Set Frequency" },
-];
+const outputTerminalOptions: TDeviceRegisterOptions = {
+    0: "Inverter Running",
+    1: "Target Frequency Reached",
+    2: "Frequency Detection Triggered (On when 03-21 / P.42 or 03-22 / P.43 is reached)",
+    3: "Overload",
+    4: "Output Current Zero",
+    5: "Alarm",
+    12: "Overtorque",
+    17: "Inverter on, No Alarm",
+};
 
-const outputTerminalOptions: DeviceRegisterOptions = [
-    { value: "0", text: "Inverter Running" },
-    { value: "1", text: "Target Frequency Reached" },
-    { value: "2", text: "Frequency Detection Triggered (On when 03-21 / P.42 or 03-22 / P.43 is reached)" },
-    { value: "3", text: "Overload" },
-    { value: "4", text: "Output Current Zero" },
-    { value: "5", text: "Alarm" },
-    { value: "12", text: "Overtorque" },
-    { value: "17", text: "Inverter on, No Alarm" },
-];
-
-// Implement Shihlin VFD device. These VFD's are modbus-rtu compatible
-// and defining a subclass allows us to use a more-specific discovery
-// mechanism that can decode the responses in a meaningful way.
-export class ShihlinVFD extends VFD {
+export class ShihlinVFD extends ModbusRTUCompatibleVFD {
     static TypeName = "Shihlin VFD";
     deviceType: ModbusDeviceType = ModbusDeviceType.Shihlin;
     manufacturer = "Shihlin";
     model = "SL3";
 
-    voltage: number = 0;
-    phases: number = 0;
-    power: number = 0;
-
-    registers: DeviceRegisters = {
+    registers: TDeviceRegisters = {
         10000: {
             name: "Inverter Model",
             type: DeviceRegisterType.ReadOnly,
@@ -102,7 +95,6 @@ export class ShihlinVFD extends VFD {
             type: DeviceRegisterType.ReadOnly,
             description: "Firmware version of the inverter",
             displayFormat(response: number[]): string {
-                // Firmware version is 0.<response-as-decimal>
                 return `0.${response[0]}`;
             }
         },
@@ -110,15 +102,15 @@ export class ShihlinVFD extends VFD {
             name: "Parameter Restore",
             type: DeviceRegisterType.ReadWrite,
             description: "Restore the inverter parameters to factory defaults",
-            options: [
-                { value: "0", text: "Off" },
-                { value: "1", text: "Clear Alarm History (P.996=1)" },
-                { value: "2", text: "Reset Inverter (P.997=1)" },
-                { value: "3", text: "Restore all parameters to default (P.998=1)" },
-                { value: "4", text: "Restore some parameters to default 1 (P.999=1)" },
-                { value: "5", text: "Restore some parameters to default 2 (P.999=2)" },
-                { value: "6", text: "Restore some parameters to default 3 (P.999=3)" }
-            ],
+            options: {
+                0: "Off",
+                1: "Clear Alarm History (P.996=1)",
+                2: "Reset Inverter (P.997=1)",
+                3: "Restore all parameters to default (P.998=1)",
+                4: "Restore some parameters to default 1 (P.999=1)",
+                5: "Restore some parameters to default 2 (P.999=2)",
+                6: "Restore some parameters to default 3 (P.999=3)"
+            },
             writeFormat: writeInt
         },
         10011: {
@@ -132,12 +124,9 @@ export class ShihlinVFD extends VFD {
             name: "Braking Function",
             type: DeviceRegisterType.ReadWrite,
             description: "Behaviour of the braking function",
-            options: [
-                { value: "0", text: "Idling Brake" },
-                { value: "1", text: "DC Injection Brake" },
-            ],
-            displayFormat(response: number[]): string {
-                return response[0] === 0 ? "Idling Brake" : "DC Injection Brake";
+            options: {
+                0: "Idling Brake",
+                1: "DC Injection Brake"
             },
             writeFormat: writeInt
         },
@@ -145,13 +134,10 @@ export class ShihlinVFD extends VFD {
             name: "Prevent Rotation Direction Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Prevent forward / reverse rotation selection",
-            options: [
-                { value: "0", text: "Allow Forward / Reverse" },
-                { value: "1", text: "Prevent Reverse" },
-                { value: "2", text: "Prevent Forward" },
-            ],
-            displayFormat(response: number[]): string {
-                return ["Allow Forward / Reverse", "Prevent Reverse", "Prevent Forward"][response[0]];
+            options: {
+                0: "Allow Forward / Reverse",
+                1: "Prevent Reverse",
+                2: "Prevent Forward"
             },
             writeFormat: writeInt
         },
@@ -159,14 +145,11 @@ export class ShihlinVFD extends VFD {
             name: "Operation Mode Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the operation mode",
-            options: [
-                { value: "0", text: "PU / External / Jog selectable by Keypad" },
-                { value: "1", text: "PU / Jog selectable by Keypad" },
-                { value: "2", text: "External mode only" },
-                { value: "3", text: "Communication (RS485) mode only" },
-            ],
-            displayFormat(response: number[]): string {
-                return ["PU / External / Jog", "PU / Jog", "External", "Communication"][response[0]];
+            options: {
+                0: "PU / External / Jog selectable by Keypad",
+                1: "PU / Jog selectable by Keypad",
+                2: "External mode only",
+                3: "Communication (RS485) mode only"
             },
             writeFormat: writeInt
         },
@@ -174,13 +157,10 @@ export class ShihlinVFD extends VFD {
             name: "Frequency Reference Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the frequency reference",
-            options: [
-                { value: "0", text: "Keypad" },
-                { value: "1", text: "Communication (RS485)" },
-                { value: "2", text: "External Analog Terminal" },
-            ],
-            displayFormat(response: number[]): string {
-                return ["Keypad", "Communication", "External Analog"][response[0]];
+            options: {
+                0: "Keypad",
+                1: "Communication (RS485)",
+                2: "External Analog Terminal"
             },
             writeFormat: writeInt
         },
@@ -188,28 +168,28 @@ export class ShihlinVFD extends VFD {
             name: "Communication Mode Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the communication mode",
-            options: [
-                { value: "0", text: "Frequency and Run Signal given over RS485" },
-                { value: "1", text: "Frequency and Run Signal given over external terminals" },
-            ],
+            options: {
+                0: "Frequency and Run Signal given over RS485",
+                1: "Frequency and Run Signal given over external terminals"
+            },
             writeFormat: writeInt
         },
         10021: {
             name: "Motor Control Mode Selection",
-            type: DeviceRegisterType.ReadOnly, // There is only one valid option
+            type: DeviceRegisterType.ReadOnly,
             description: "Select the motor control mode",
-            options: [
-                { value: "0", text: "Induction Motor V/F Control" },
-            ],
+            options: {
+                0: "Induction Motor V/F Control"
+            }
         },
         10025: {
             name: "Parameter Display Mode Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the parameter display mode",
-            options: [
-                { value: "0", text: "Group Mode (nn-nn)" },
-                { value: "1", text: "Parameter Mode (P.nnn)" },
-            ],
+            options: {
+                0: "Group Mode (nn-nn)",
+                1: "Parameter Mode (P.nnn)"
+            },
             writeFormat: writeInt
         },
         10100: {
@@ -251,14 +231,11 @@ export class ShihlinVFD extends VFD {
             name: "Acceleration Curve Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the acceleration / deceleration curve",
-            options: [
-                { value: "0", text: "Linear" },
-                { value: "1", text: "S-Curve 1" },
-                { value: "2", text: "S-Curve 2" },
-                { value: "3", text: "S-Curve 3" },
-            ],
-            displayFormat(response: number[]): string {
-                return ["Linear", "S-Curve 1", "S-Curve 2", "S-Curve 3"][response[0]];
+            options: {
+                0: "Linear",
+                1: "S-Curve 1",
+                2: "S-Curve 2",
+                3: "S-Curve 3"
             },
             writeFormat: writeInt
         },
@@ -278,10 +255,10 @@ export class ShihlinVFD extends VFD {
             name: "Acceleration / Deceleration Time Increment",
             type: DeviceRegisterType.ReadWrite,
             description: "Acceleration / Deceleration time increment",
-            options: [
-                { value: "0", text: "0.01s" },
-                { value: "1", text: "0.1s" },
-            ],
+            options: {
+                0: "0.01s",
+                1: "0.1s"
+            },
             writeFormat: writeInt
         },
         10109: {
@@ -302,22 +279,22 @@ export class ShihlinVFD extends VFD {
             name: "Load Pattern Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the load pattern",
-            options: [
-                { value: "0", text: "Constant Torque" },
-                { value: "1", text: "Variable Torque" },
-                { value: "2", text: "Lifting 1" },
-                { value: "3", text: "Lifting 2" },
-            ],
+            options: {
+                0: "Constant Torque",
+                1: "Variable Torque",
+                2: "Lifting 1",
+                3: "Lifting 2"
+            }
         },
         10220: {
             name: "Analog Input Signal Range Selection",
             type: DeviceRegisterType.ReadWrite,
             description: "Select the analog input signal range",
-            options: [
-                { value: "0", text: "4-20mA" },
-                { value: "1", text: "0-10V" },
-                { value: "2", text: "0-5V" },
-            ],
+            options: {
+                0: "4-20mA",
+                1: "0-10V",
+                2: "0-5V"
+            }
         },
         10221: {
             name: "Maximum Operation Frequency (Jog dial / Analog Input)",
@@ -360,47 +337,31 @@ export class ShihlinVFD extends VFD {
             name: "Digital Input Logic",
             type: DeviceRegisterType.ReadWrite,
             description: "Set the logic of the digital inputs",
-            options: [
-                { value: "0", text: "All Terminals Positive Logic" },
-                { value: "15", text: "All Terminals Negative Logic (CAUTION)" },
-            ],
+            options: {
+                0: "All Terminals Positive Logic",
+                15: "All Terminals Negative Logic (CAUTION)"
+            }
         },
         10315: {
             name: "Digital Output Logic",
             type: DeviceRegisterType.ReadWrite,
             description: "Set the logic of the digital outputs",
-            options: [
-                { value: "0", text: "Output Terminal Positive Logic" },
-                { value: "2", text: "Output Terminal Negative Logic" },
-            ],
-        },
-    };
+            options: {
+                0: "Output Terminal Positive Logic",
+                2: "Output Terminal Negative Logic"
+            }
+        }
+    }
 
     ToString(): string {
         return `${this.manufacturer} ${this.model} (${this.voltage} / ${this.power}) on port ${this.port},  address ${this.address}`;
     }
-
-    static get discoveryCommand(): DiscoveryCommand {
-        return {
-            rrfCode: "M260.4",
-            discoveryData: [0x03,0x27,0x10,0x00,0x01], // Read inverter model at address 10000
-            expectBytes: 4,
-            // This command returns the inverter model number in hex.
-            // We convert the hex to base 10. First digit is input
-            // voltage (1=1ph 220v, 2=3ph 440v), remaining digits are power rating.
-            // 02 = 0.4kW, 03 = 0.75kW, 04 = 1.5kW, 05 = 2.2kW
-            processResponse(response: number[], device: ModbusDevice) {
-                const vfd = device as ShihlinVFD;
-                const model = decodeInverterModel(response);
-                vfd.power = model.power;
-                vfd.voltage = model.voltage;
-                vfd.phases = model.phases;
-                vfd.discoveryStatus = "Complete";
-            }
-        };
-    }
 }
 
-export function isShihlin(device: ModbusDevice): device is ShihlinVFD {
+export function isShihlin(device: TModbusDevice): device is ModbusRTUDevice {
     return device.deviceType === ModbusDeviceType.Shihlin;
+}
+
+export function isShihlinVFD(device: TModbusDevice): device is ShihlinVFD {
+    return isShihlin(device) && device.deviceGroup === ModbusDeviceGroup.VFD;
 }
