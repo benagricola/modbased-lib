@@ -1,6 +1,6 @@
-import { TModbusDevice, ModbusDeviceType,  DeviceRegisterType, TDeviceRegisterOptions, TDeviceRegisters, ModbusDeviceGroup } from '../Device';
+import { DeviceType, DeviceRegisterType, TDeviceRegisterOptions, TDeviceRegisterDefinitions } from '../Device';
 import { ModbusRTUDevice } from './RTU';
-import { ModbusRTUCompatibleVFD } from './VFD';
+import { VFD } from './VFD';
 
 // Map inverter model numbers to the relevant details
 export type ShihlinInverterModel = {
@@ -74,21 +74,21 @@ const outputTerminalOptions: TDeviceRegisterOptions = {
     17: "Inverter on, No Alarm",
 };
 
-export class ShihlinVFD extends ModbusRTUCompatibleVFD {
+export class ShihlinVFD extends ModbusRTUDevice implements VFD {
     static TypeName = "Shihlin VFD";
-    deviceType: ModbusDeviceType = ModbusDeviceType.Shihlin;
+    deviceType: DeviceType = DeviceType.Shihlin;
     manufacturer = "Shihlin";
     model = "SL3";
 
-    registers: TDeviceRegisters = {
+    voltage: number = 0;
+    phases: number = 0;
+    power: number = 0;
+
+    registerDefinitions: TDeviceRegisterDefinitions = {
         10000: {
             name: "Inverter Model",
             type: DeviceRegisterType.ReadOnly,
             description: "Model number of the inverter",
-            displayFormat(response: number[]): string {
-                const model = decodeInverterModel(response);
-                return `${model.voltage}V ${model.phases}ph ${model.power}kW`;
-            }
         },
         10001: {
             name: "Firmware Version",
@@ -354,14 +354,7 @@ export class ShihlinVFD extends ModbusRTUCompatibleVFD {
     }
 
     ToString(): string {
-        return `${this.manufacturer} ${this.model} (${this.voltage} / ${this.power}) on port ${this.port},  address ${this.address}`;
+        return `${this.manufacturer} ${this.model} (${this.voltage} / ${this.power}) at address ${this.address}`;
     }
 }
 
-export function isShihlin(device: TModbusDevice): device is ModbusRTUDevice {
-    return device.deviceType === ModbusDeviceType.Shihlin;
-}
-
-export function isShihlinVFD(device: TModbusDevice): device is ShihlinVFD {
-    return isShihlin(device) && device.deviceGroup === ModbusDeviceGroup.VFD;
-}

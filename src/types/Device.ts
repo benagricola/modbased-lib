@@ -1,26 +1,35 @@
-import { IReadRegisterOptions, IWriteRegisterOptions, IDiscoverOptions, ILoadDefinitionOptions, IModbusCommunicationOptions, ILoadDefinitionLoaderOptions } from "./Communication";
+import {
+    IImplementation,
+    TDiscoverFunction,
+    TReadRegisterFunction,
+    TWriteRegisterFunction,
+    IDiscoverOptions,
+    IReadRegisterOptions,
+    IWriteRegisterOptions,
+    ILoadDefinitionOptions,
+} from "./Implementation";
 
-// Modbus constants
-export const ModbusMaxAddress = 127;
+import { ICommunication, } from "./Communication";
 
 // Protocol types
-export enum ModbusProtocol {
-    Unknown = "unknown",
-    RTU = "modbus-rtu",
+export enum DeviceProtocol {
+    Unknown  = "unknown",
+    Modbus   = "modbus",   // Generic modbus, unknown variant
+    RTU      = "modbus-rtu",
     Huanyang = "modbus-huanyang"
 }
 
 // Device groups
-export enum ModbusDeviceGroup {
+export enum DeviceGroup {
     Unknown = "unknown",
-    VFD = "vfd",
+    VFD     = "vfd",
 }
 
 // Device types
-export enum ModbusDeviceType {
+export enum DeviceType {
     Unknown = "unknown",
     Generic = "generic",
-    Shihlin = "shihlin",
+    Shihlin = "shihlin", // TODO: This doesn't feel right, Shihlink is a manufacturer.
 }
 
 // Device register types
@@ -31,12 +40,16 @@ export enum DeviceRegisterType {
     Control = "control",
 }
 
+export type TDeviceRegisterOptions = {
+    [value: number]: string;
+}
+
 // Device register definitions
 export type TDeviceRegisterDefinition = {
     name: string;
     type: DeviceRegisterType;
     description: string;
-    options?: { [value: number]: string };
+    options?: TDeviceRegisterOptions;
     displayFormat?(response: number[]): string;
     writeFormat?(value: string): number[];
 }
@@ -46,42 +59,39 @@ export type TDeviceRegisterDefinitions = {
 export type TDeviceRegisterValue = number;
 
 export type TDeviceRegisters = {
-    [address: string]: TDeviceRegisterValue;
+    [address: number]: TDeviceRegisterValue;
 }
 
-// Device coil types
+// Device coil definitions
 export type TDeviceCoilDefinition = {
     name: string;
     description: string;
 }
 export type TDeviceCoilDefinitions = {
-    [address: string]: TDeviceCoilDefinition;
+    [address: number]: TDeviceCoilDefinition;
 };
 
-export type TDeviceCoilValue = boolean;
-
 export type TDeviceCoils = {
-    [address: string]: TDeviceCoilValue;
+    [address: number]: boolean;
 }
 
 export type TDeviceDefinitions = [TDeviceRegisterDefinitions, TDeviceCoilDefinitions];
 
 // Discoverable device types
 export interface IDiscoverableDevice {
-    Discover(options: IDiscoverOptions): Promise<TModbusDevice[]>;
+    Discover: TDiscoverFunction;
     TypeName: string;
 }
 export type TDiscoverableDevices = IDiscoverableDevice[];
 
-// Modbus device types
-export type TModbusDevice = {
+// Device type
+export type TDevice = {
     ToString(): string;
-    readRegisterFunction: (options: IReadRegisterOptions) => Promise<number[]>;
-    writeRegisterFunction: (options: IWriteRegisterOptions) => Promise<boolean>;
-    discoveryStatus?: string;
-    protocolType: ModbusProtocol;
-    deviceGroup: ModbusDeviceGroup;
-    deviceType: ModbusDeviceType;
+    readRegisterFunction: TReadRegisterFunction;
+    writeRegisterFunction: TWriteRegisterFunction;
+    protocolType: DeviceProtocol;
+    deviceGroup: DeviceGroup;
+    deviceType: DeviceType;
     manufacturer?: string;
     model?: string;
     port?: number;
@@ -90,33 +100,40 @@ export type TModbusDevice = {
     registers: TDeviceRegisters;
     coils: TDeviceCoils;
 };
-export type TModbusDevices = TModbusDevice[];
+export type TDevices = TDevice[];
+
+export interface IBaseDevice {
+    SetCommunication(comm: ICommunication): void;
+}
 
 /*
- * BaseModbusDevice
+ * BaseDevice
  *
- * Base class for all Modbus devices. This class provides a common
- * interface for all Modbus devices, and provides a static method
- * for discovering devices on a Modbus network.
+ * Base class for all Devices. This class provides a common
+ * interface for all Devices, and provides a static method
+ * for discovering devices.
  *
- * Devices do not have to be fully modbus-compatible, but need to
- * at least support modbus-style addressing, framing and timing.
- * Discovery and configuration commands can use the M260.4 command
- * to send vendor-specific configuration commands, or fall back to
- * using the default M260.1 and M261.1 commands if they are RTU
- * compliant.
+ * This class aims to represent modbus-like devices that have
+ * registers and coils, but there is no requirement that a device
+ * must be modbus, or even on a modbus network. This library can
+ * essentially be used to represent any device, as long as its
+ * data can be represented as registers and / or coils.
  *
  * Each device type definition should have a unique protocolType,
- * deviceGroup and deviceType triplet, and should implement a
- * discoveryCommand if this differs from its parent class.
+ * deviceGroup and deviceType triplet, and should implement all the
+ * required methods if they differ from its parent class.
  */
-export abstract class Device implements TModbusDevice {
-    protocolType = ModbusProtocol.Unknown
-    deviceGroup = ModbusDeviceGroup.Unknown
-    deviceType = ModbusDeviceType.Unknown
+export abstract class Device implements TDevice {
+    protocolType = DeviceProtocol.Unknown;
+    deviceGroup = DeviceGroup.Unknown;
+    deviceType = DeviceType.Unknown;
+
+    static comm: ICommunication;
 
     manufacturer?: string | undefined;
     model?: string | undefined;
+
+    discoveryStatus?: string | undefined;
 
     // Field definitions are shared between all instances
     static registerDefinitions: TDeviceRegisterDefinitions = {};
@@ -127,60 +144,67 @@ export abstract class Device implements TModbusDevice {
     registers: TDeviceRegisters = {};
     coils: TDeviceCoils = {};
 
-    static discoverFunction(_: IDiscoverOptions): Promise<TModbusDevice[]> {
+    static discoverFunction(_comm: ICommunication, _discoverOpts: IDiscoverOptions): Promise<TDevice[]> {
         throw new Error("discoverFunction not implemented");
     }
 
-    static loadDefinitions(options?: ILoadDefinitionLoaderOptions): Promise<TDeviceDefinitions> {
+    static loadDefinitions(_options?: ILoadDefinitionOptions): Promise<TDeviceDefinitions> {
         throw new Error("loadDefinitions not implemented");
     }
 
-    async readRegisterFunction(_: IReadRegisterOptions): Promise<number[]> {
+    static SetCommunication(comm: ICommunication): void {
+        Device.comm = comm;
+    }
+
+    async readRegisterFunction(_comm: ICommunication, _readRegisterOpts: IReadRegisterOptions): Promise<number[]> {
         throw new Error("readRegisterFunction not implemented");
     }
 
-    async writeRegisterFunction(_: IWriteRegisterOptions): Promise<boolean> {
+    async writeRegisterFunction(_comm: ICommunication, _writeRegisterOpts: IWriteRegisterOptions): Promise<boolean> {
         throw new Error("writeRegisterFunction not implemented");
     }
 
     ToString(): string {
-        return "Unknown Modbus Device";
+        const deviceRepr = (this.manufacturer ?? 'Unknown Manufacturer') + ' ' + (this.model ?? 'Unknown Model');
+
+        return "Unknown Device";
     }
 
-    constructor(commOpts?: IModbusCommunicationOptions) {
 
-        if(commOpts) {
-            if(commOpts.readRegisterFunction) {
-                this.readRegisterFunction = commOpts.readRegisterFunction;
+    constructor(impl?: IImplementation) {
+        // Allow implementation to be overridden
+        if(impl) {
+            if(impl.readRegisterFunction) {
+                this.readRegisterFunction = impl.readRegisterFunction;
             }
-            if(commOpts.writeRegisterFunction) {
-                this.writeRegisterFunction = commOpts.writeRegisterFunction;
+            if(impl.writeRegisterFunction) {
+                this.writeRegisterFunction = impl.writeRegisterFunction;
             }
-            if(commOpts.discoverFunction) {
-                Device.discoverFunction = commOpts.discoverFunction;
+            if(impl.discoverFunction) {
+                Device.discoverFunction = impl.discoverFunction;
             }
-            if(commOpts.loadDefinitions) {
-                Device.loadDefinitions = commOpts.loadDefinitions;
+            if(impl.loadDefinitions) {
+                Device.loadDefinitions = impl.loadDefinitions;
             }
         }
     }
 
     static async LoadDefinitions(options?: ILoadDefinitionOptions): Promise<void> {
         if(!this.definitionsLoaded || options?.forceLoad) {
-            [this.registerDefinitions, this.coilDefinitions] = await this.loadDefinitions(options?.loaderOptions);
+            [this.registerDefinitions, this.coilDefinitions] = await this.loadDefinitions(options);
             this.definitionsLoaded = true;
         }
     }
 
-    static async Discover(options: IDiscoverOptions): Promise<TModbusDevice[]> {
-        return await this.discoverFunction(options);
+    static async Discover(options: IDiscoverOptions): Promise<TDevice[]> {
+        return await this.discoverFunction(Device.comm, options);
     }
 
     async ReadRegister(options: IReadRegisterOptions): Promise<number[]> {
-        return await this.readRegisterFunction(options);
+        return await this.readRegisterFunction(Device.comm, options);
     }
 
     async WriteRegister(options: IWriteRegisterOptions): Promise<boolean> {
-        return await this.writeRegisterFunction(options);
+        return await this.writeRegisterFunction(Device.comm, options);
     }
 }
