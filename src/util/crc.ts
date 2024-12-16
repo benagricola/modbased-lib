@@ -1,4 +1,4 @@
-export function crc16(data: Uint8Array): number {
+export function crc16(data: Uint8Array): Uint8Array {
     let crc = 0xFFFF;
     for (let i = 0; i < data.length; i++) {
         crc ^= data[i];
@@ -10,5 +10,5 @@ export function crc16(data: Uint8Array): number {
             }
         }
     }
-    return crc;
+    return new Uint8Array([crc & 0xFF, (crc >> 8) & 0xFF]);
 }

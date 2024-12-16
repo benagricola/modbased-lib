@@ -1,7 +1,7 @@
-import { TDevice, DeviceProtocol, DeviceGroup, DeviceType } from '../types/Device';
-import { ModbusDevice } from '../types/devices/Modbus';
-import { ModbusRTUDevice } from '../types/devices/RTU';
-import { VFD } from '../types/devices/VFD';
+import { TDevice, DeviceProtocol, DeviceGroup, DeviceType } from '../types/device';
+import { ModbusDevice } from '../types/devices/modbus';
+import { ModbusRTUDevice } from '../types/devices/rtu';
+import { VFD } from '../types/devices/vfd';
 
 export function isModbusRTUDevice(device: TDevice): device is ModbusRTUDevice {
     return device.protocolType === DeviceProtocol.RTU;
@@ -17,4 +17,8 @@ export function isVFD(device: TDevice): device is VFD {
 
 export function isShihlin(device: TDevice): device is ModbusRTUDevice {
     return device.deviceType === DeviceType.Shihlin;
+}
+
+export function isTimeoutError(error: any): boolean {
+    return error.isTimeout ?? false;
 }

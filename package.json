@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "@types/node": "^22.10.2",
+    "serialport": "^12.0.0"
+  },
+  "name": "modbased",
+  "version": "1.0.0",
+  "description": "A modbus and modbus-like device-descriptor system, enabling discovery, enumeration and configuration of devices. Device not supported? Add it here!",
+  "type": "module",
+  "main": "main.js",
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "typescript": "^5.7.2"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "demo": "node main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

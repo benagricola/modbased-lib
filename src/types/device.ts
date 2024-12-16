@@ -7,9 +7,9 @@ import {
     IReadRegisterOptions,
     IWriteRegisterOptions,
     ILoadDefinitionOptions,
-} from "./Implementation";
+} from "./implementation";
 
-import { ICommunication, } from "./Communication";
+import { ICommunication, } from "./communication";
 
 // Protocol types
 export enum DeviceProtocol {
@@ -49,6 +49,8 @@ export type TDeviceRegisterDefinition = {
     name: string;
     type: DeviceRegisterType;
     description: string;
+    min?: number;
+    max?: number;
     options?: TDeviceRegisterOptions;
     displayFormat?(response: number[]): string;
     writeFormat?(value: string): number[];
@@ -90,13 +92,11 @@ export type TDevice = {
     readRegisterFunction: TReadRegisterFunction;
     writeRegisterFunction: TWriteRegisterFunction;
     protocolType: DeviceProtocol;
+    discoveryStatus?: string;
     deviceGroup: DeviceGroup;
     deviceType: DeviceType;
     manufacturer?: string;
     model?: string;
-    port?: number;
-    baudRate?: number;
-    address?: number;
     registers: TDeviceRegisters;
     coils: TDeviceCoils;
 };
@@ -171,7 +171,12 @@ export abstract class Device implements TDevice {
     }
 
 
-    constructor(impl?: IImplementation) {
+    constructor(device?: TDevice, impl?: IImplementation) {
+        if(device) {
+            this.manufacturer = device.manufacturer;
+            this.model = device.model;
+        }
+
         // Allow implementation to be overridden
         if(impl) {
             if(impl.readRegisterFunction) {

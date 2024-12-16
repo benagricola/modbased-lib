@@ -1,5 +1,5 @@
-import { ICommunication } from './Communication';
-import { TDeviceDefinitions, TDevice } from './Device';
+import { ICommunication } from './communication';
+import { TDeviceDefinitions, TDevice } from './device';
 
 export type TReadRegisterFunction = (comm: ICommunication, options: IReadRegisterOptions) => Promise<number[]>;
 export type TWriteRegisterFunction = (comm: ICommunication, options: IWriteRegisterOptions) => Promise<boolean>;
@@ -9,7 +9,6 @@ export type TLoadDefinitionsFunction = (options?: ILoadDefinitionOptions) => Pro
 // Options required to discover, read and write to devices.
 // Use commOptions to pass any implementation-specific options.
 export interface IDiscoverOptions {
-    baudRate: number;
     startAddress: number;
     addressCount: number;
 }
