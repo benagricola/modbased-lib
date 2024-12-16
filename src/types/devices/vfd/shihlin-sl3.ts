@@ -1,7 +1,7 @@
 import { TDevice, DeviceType, DeviceRegisterType, TDeviceRegisterOptions, TDeviceRegisterDefinitions } from '../../device';
 import { ICommunication } from '../../communication';
 import { IImplementation, IDiscoverOptions } from '../../implementation';
-import { ModbusRTUDevice, ModbusRTUReadRegisterRequest } from '../rtu';
+import { ModbusRTUDevice, ModbusRTUReadRegisterRequest, ModbusRTUReadRegisterResponse } from '../rtu';
 import { VFD } from '../vfd';
 
 // Map inverter model numbers to the relevant details
@@ -29,12 +29,12 @@ const inverterModelPhases: { [key: number]: number } = {
     2: 3
 };
 
-const decodeInverterModel = (modelData: Uint8Array): ShihlinInverterModel => {
-    const vphases = Math.floor(modelData[0] / 16);
+const decodeInverterModel = (modelData: number): ShihlinInverterModel => {
+    const vphases = Math.floor(modelData / 100);
     return {
         voltage: inverterModelVoltage[vphases] || 0,
         phases: inverterModelPhases[vphases] || 0,
-        power: inverterModelPower[modelData[1] & 0x0F] || 0,
+        power: inverterModelPower[modelData-100] || 0,
     } as ShihlinInverterModel;
 }
 
@@ -359,6 +359,9 @@ export class ShihlinVFD extends VFD {
 
     constructor(device?: TDevice, impl?: IImplementation) {
         super(device, impl);
+        if(device) {
+            this.protocolType = device.protocolType;
+        }
     }
 
     static async discoverFunction(comm: ICommunication, discoverOpts: IDiscoverOptions): Promise<TDevice[]> {
@@ -366,17 +369,20 @@ export class ShihlinVFD extends VFD {
         // Discover devices using a normal RTU echo test
         const modbusRTUDevices = await ModbusRTUDevice.discoverFunction(comm, discoverOpts)
         for (const device of modbusRTUDevices as ModbusRTUDevice[]) {
-            // Run discovery using the Shihlin-specific model number register
+            // Run discovery using the Shihlin-specific model number register, 10000
             try {
                 const res = await comm.Request(new ModbusRTUReadRegisterRequest(
                     device.address,
                     10000,
                     1,
-                ));
-                console.log(res);
-                const model = decodeInverterModel(res.data);
-                console.log(model);
+                )) as ModbusRTUReadRegisterResponse;
+                if(!res.isValid()) {
+                    comm.Debug(`Invalid response from device at address ${device.address}: ${res.validationError}`);
+                    continue;
+                }
+                const model = decodeInverterModel(res.registerValues[0]);
                 const newDevice = new ShihlinVFD(device);
+                newDevice.protocolType = device.protocolType;
                 newDevice.discoveryStatus = "Shihlin Inverter Model Number Read";
                 newDevice.voltage = model.voltage;
                 newDevice.phases = model.phases;

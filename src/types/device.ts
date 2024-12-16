@@ -97,6 +97,9 @@ export type TDevice = {
     deviceType: DeviceType;
     manufacturer?: string;
     model?: string;
+    deviceDefinitions?: TDeviceDefinitions;
+    registerRanges?: [number, number][];
+    coilRanges?: [number, number][];
     registers: TDeviceRegisters;
     coils: TDeviceCoils;
 };
@@ -149,6 +152,7 @@ export abstract class Device implements TDevice {
     }
 
     static loadDefinitions(_options?: ILoadDefinitionOptions): Promise<TDeviceDefinitions> {
+        // Default implementation tries to load definitions from
         throw new Error("loadDefinitions not implemented");
     }
 
@@ -165,14 +169,15 @@ export abstract class Device implements TDevice {
     }
 
     ToString(): string {
-        const deviceRepr = (this.manufacturer ?? 'Unknown Manufacturer') + ' ' + (this.model ?? 'Unknown Model');
-
         return "Unknown Device";
     }
 
 
     constructor(device?: TDevice, impl?: IImplementation) {
         if(device) {
+            this.protocolType = device.protocolType;
+            this.deviceGroup = device.deviceGroup;
+            this.deviceType = device.deviceType;
             this.manufacturer = device.manufacturer;
             this.model = device.model;
         }

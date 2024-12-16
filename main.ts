@@ -109,7 +109,8 @@ class NodeUSBConn implements ICommunication {
                 newData.set(data, receivedData.length);
                 receivedData = newData;
                 if(receivedData.length >= req.expectedLength) {
-                    r({data: receivedData});
+                    this.port.drain();
+                    r(new req.Response(receivedData, req));
                 }
             });
 

@@ -4,6 +4,7 @@ export interface ICommunicationOptions {
 
 export interface IRequest {
     address: number;
+    Response: new(bytes: Uint8Array, request: IRequest) => IResponse;
     get data(): Uint8Array;
     get buffer(): Uint8Array;
     get expectedLength(): number;
@@ -11,6 +12,7 @@ export interface IRequest {
 
 export interface IResponse {
     get data(): Uint8Array;
+    get request(): IRequest;
 }
 
 export interface ICommunicationError {

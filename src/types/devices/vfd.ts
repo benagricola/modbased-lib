@@ -18,6 +18,9 @@ export abstract class VFD extends Device implements ModbusDevice {
         super(device, impl);
         if(isModbusRTUDevice(this)) {
             this.modbusRTUDevice = this;
+            this.protocolType = this.modbusRTUDevice.protocolType;
+        } else {
+            console.log("VFD device is not a ModbusRTUDevice");
         }
     }
 

@@ -15,7 +15,7 @@ function concatArrayBuffers(a: ArrayBuffer, b: ArrayBuffer): Uint8Array {
     return ab;
 }
 
-export function DataTo16BitArray(data: Uint8Array): number {
+export function DataToNumber(data: Uint8Array): number {
     const dv = new DataView(data.buffer, 0);
     return dv.getUint16(0, false);
 }
@@ -24,18 +24,20 @@ export interface IModbusRTURequest extends IRequest {
     address: number;
     function: number;
     get crc(): Uint8Array;
-    ResponseType(): IModbusRTUResponse;
 }
 
 export interface IModbusRTUResponse extends IResponse {
     address: number;
     function: number;
+    isValid(): boolean;
     get length(): number;
 }
 
 export abstract class ModbusRTURequest implements IModbusRTURequest {
     address: number = 1;
     function: number = 0x00;
+
+    Response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUResponse;
 
     protected addrFunc(): Uint8Array {
         return Uint8Array.from([this.address, this.function]);
@@ -58,9 +60,6 @@ export abstract class ModbusRTURequest implements IModbusRTURequest {
         return 4;
     }
 
-    ResponseType(): IModbusRTUResponse {
-        return ModbusRTUResponse;
-    }
 
     constructor(address: number) {
         if(address < ModbusMinAddress) {
@@ -73,38 +72,95 @@ export abstract class ModbusRTURequest implements IModbusRTURequest {
     }
 }
 
+export enum ModbusRTUExceptionCode {
+    ILLEGAL_FUNCTION = 0x01,
+    ILLEGAL_DATA_ADDRESS = 0x02,
+    ILLEGAL_DATA_VALUE = 0x03,
+}
+
+
 export class ModbusRTUResponse implements IModbusRTUResponse {
     address: number = -1;
     function: number = 0x00;
+    request: IRequest;
 
-    data: Uint8Array;
+    protected valid: boolean = true;
+    protected validationErr: string = "";
+
+    data: Uint8Array = new Uint8Array();
 
     get length(): number {
-        return this.data.length;
+        // When length is read, the original address, function and
+        // CRC bytes have been removed from the data, so we need to
+        // add 4 to the length to account for that.
+        return this.data.length + 4;
     }
 
-    constructor(res: IResponse) {
-        const data = res.data.slice(0, res.data.length - 2);
-        const crc = crc16(data);
-        const expectedCrc = res.data.slice(res.data.length - 2);
-        if(crc.every((v, i) => v !== expectedCrc[i])) {
-            throw new Error(`Invalid CRC in response: ${res.data}}`);
+    isValid(): boolean {
+        return this.valid;
+    }
+
+    get validationError(): string {
+        return this.validationErr;
+    }
+
+    constructor(bytes: Uint8Array, request: IRequest) {
+        this.request = request;
+
+        const expectedFunction = (request as ModbusRTURequest).function;
+
+        // Validate function code
+        if(bytes[1] !== expectedFunction) {
+            this.valid = false;
+
+            this.validationErr = `Function code mismatch: ${bytes[1]} != ${expectedFunction}`;
+            // Check if this matches an error code from the device.
+            if(bytes[1] === 0x80 + expectedFunction) {
+                this.validationErr = `Device returned error code ${bytes[1]}: ${ModbusRTUExceptionCode[bytes[2]]}`;
+            }
+
+            return;
         }
-        this.address = data[0];
-        this.function = data[1];
-        this.data = data.slice(2);
+
+        // Validate response length.
+        // Comms layer should already check this based on
+        // the expectedLength property.
+        if(bytes.length < request.expectedLength) {
+            this.valid = false;
+            this.validationErr = `Response length ${bytes.length} is less than expected ${request.expectedLength}`;
+            return;
+        }
+
+        // Split the CRC from the data.
+        const dataStartIdx = 2;
+        const dataEndIdx = bytes.length - 2;
+        const dataWithAddrFunc = bytes.slice(0, dataEndIdx);
+        const crc = crc16(dataWithAddrFunc);
+        const expectedCrc = bytes.slice(dataEndIdx);
+
+        // Validate the CRC
+        if(crc.every((v, i) => v !== expectedCrc[i])) {
+            this.valid = false;
+            this.validationErr = `CRC mismatch: ${crc} != ${expectedCrc}`;
+            return;
+        }
+
+        // Assign data fields
+        this.address = dataWithAddrFunc[0];
+        this.function = dataWithAddrFunc[1];
+        this.data = dataWithAddrFunc.slice(dataStartIdx); // Remove address and function.
     }
 }
-
-const rtuEchoTestDiscoveryRequest = Uint8Array.from([0xBE, 0xEF]);
 
 export class ModbusRTUDiagnosticsRequest extends ModbusRTURequest {
     function = 0x08;
     subFunction: number = 0x00;
-    echoData: Uint8Array = new Uint8Array();
+    diagnosticData: Uint8Array = new Uint8Array();
+
+    Response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUDiagnosticsResponse;
 
     get data(): Uint8Array {
-        return concatArrayBuffers(this.addrFunc(), this.echoData);
+        return concatArrayBuffers(this.addrFunc(), concatArrayBuffers(Uint16Array.from([this.subFunction]), this.diagnosticData));
     }
 
     get expectedLength(): number {
@@ -118,10 +174,33 @@ export class ModbusRTUDiagnosticsRequest extends ModbusRTURequest {
         if(subFunction) {
             this.subFunction = subFunction;
         }
-        if(data) {
-            this.echoData = Uint8Array.from(data);
+
+        this.diagnosticData = data ? Uint8Array.from(data) : Uint8Array.from([0xBE, 0xEF]);
+    }
+}
+
+class ModbusRTUDiagnosticsResponse extends ModbusRTUResponse {
+    subFunction: number = 0;
+    diagnosticData: Uint8Array = new Uint8Array();
+
+    constructor(bytes: Uint8Array, request: IRequest) {
+        super(bytes, request as ModbusRTUDiagnosticsRequest);
+
+        // Do not continue if this is not a valid ModbusRTUresponse.
+        if(!this.isValid()) {
+            return
         }
-        this.echoData = concatArrayBuffers(Uint16Array.from([this.subFunction]), data ? Uint16Array.from(data) : rtuEchoTestDiscoveryRequest);
+
+        const req = request as ModbusRTUDiagnosticsRequest;
+
+        this.subFunction = new DataView(this.data.buffer).getUint16(0, false);
+
+        this.diagnosticData = this.data.slice(2);
+
+        if(this.subFunction != req.subFunction || this.diagnosticData.every((v, i) => v !== req.diagnosticData[i])) {
+            this.valid = false;
+            this.validationErr = `Diagnostic data mismatch: ${this.subFunction} ${this.diagnosticData} != ${req.subFunction} ${req.diagnosticData}`;
+        }
     }
 }
 
@@ -130,8 +209,22 @@ export class ModbusRTUReadRegisterRequest extends ModbusRTURequest implements IR
     register: number = 0;
     numRegisters: number = 1; // 16-bit registers
 
+    Response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUReadRegisterResponse;
+
     get data(): Uint8Array {
-        return concatArrayBuffers(this.addrFunc(), Uint16Array.from([this.register, this.numRegisters]));
+        // Create a buffer and DataView for the register and numRegisters
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+
+        // Set the register and numRegisters in big-endian order
+        view.setUint16(0, this.register, false); // false for big-endian
+        view.setUint16(2, this.numRegisters, false); // false for big-endian
+
+        // Extract the bytes
+        const registerBytes = new Uint8Array(buffer.slice(0, 2));
+        const numRegistersBytes = new Uint8Array(buffer.slice(2, 4));
+
+        return concatArrayBuffers(this.addrFunc(), concatArrayBuffers(registerBytes, numRegistersBytes));
     }
 
     get expectedLength(): number {
@@ -146,6 +239,39 @@ export class ModbusRTUReadRegisterRequest extends ModbusRTURequest implements IR
         super(address)
         this.register = register;
         this.numRegisters = numRegisters;
+    }
+}
+
+export class ModbusRTUReadRegisterResponse extends ModbusRTUResponse {
+    register: number = 0;
+    numRegisters: number = 0;
+    registerValues: number[] = [];
+
+    constructor(bytes: Uint8Array, request: IRequest) {
+        super(bytes, request);
+
+        // Do not continue if this is not a valid ModbusRTUresponse.
+        if(!this.isValid()) {
+            return
+        }
+
+        const req = request as ModbusRTUReadRegisterRequest;
+
+        this.register = (this.request as ModbusRTUReadRegisterRequest).register;
+        const numRegistersRead = this.data[0]/2; // 2 bytes per register
+        if(numRegistersRead != req.numRegisters) {
+            this.valid = false;
+            this.validationErr = `Number of registers read (${numRegistersRead}) does not match number of registers requested (${req.numRegisters})`;
+            return;
+        }
+
+        this.numRegisters = numRegistersRead;
+
+        // Each register is 2 bytes
+        const dv = new DataView(this.data.buffer, 1);
+        for(let i = 0; i < this.numRegisters; i++) {
+            this.registerValues.push(dv.getUint16(i * 2, false));
+        }
     }
 }
 
@@ -211,21 +337,10 @@ export class ModbusRTUDevice extends ModbusDevice {
         for (let i = discoverOpts.startAddress; i < discoverOpts.startAddress + discoverOpts.addressCount; i++) {
             try {
                 const req = new ModbusRTUDiagnosticsRequest(i);
-                const res = new ModbusRTUResponse(await comm.Request(req));
+                const res = await comm.Request(req) as ModbusRTUDiagnosticsResponse;
 
-                console.log(res.length);
-                console.log(req.expectedLength);
-                if(res.length !== req.expectedLength) {
-                    comm.Debug(`Invalid response length from device at address ${i}`);
-                    continue;
-                }
-                // First 2 bytes are the address and function code.
-                console.log(res.data);
-                console.log(req.buffer);
-                const valid = res.data.every((v, i) => v === req.buffer[i+1]);
-
-                if(!valid) {
-                    comm.Debug(`Invalid response from device at address ${i}: ${res.data} !=`);
+                if(!res.isValid()) {
+                    comm.Debug(`Invalid response from device at address ${i}: ${res.validationError}`);
                     continue;
                 }
                 const device = new ModbusRTUDevice();
