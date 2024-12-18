@@ -1,9 +1,8 @@
-import { ICommunication, IRequest, IResponse } from "../communication";
-import { IDiscoverOptions, IImplementation, IReadRegisterOptions } from "../implementation";
-import { TDevice, DeviceProtocol } from "../device";
-import { ModbusDevice } from "./modbus";
-import { crc16 } from "../../util/crc";
-import { isTimeoutError } from "../../util/guards";
+import { ICommunicationChannel, CommunicationProtocolSymbol, IRequest, IResponse } from '../communication';
+import { Device, DeviceFactory } from '../device';
+import { crc16 } from '../util/crc';
+
+import { isTimeoutError } from '../util/guards';
 
 const ModbusMinAddress = 1;
 const ModbusMaxAddress = 247;
@@ -37,7 +36,7 @@ export abstract class ModbusRTURequest implements IModbusRTURequest {
     address: number = 1;
     function: number = 0x00;
 
-    Response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUResponse;
+    response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUResponse;
 
     protected addrFunc(): Uint8Array {
         return Uint8Array.from([this.address, this.function]);
@@ -157,7 +156,7 @@ export class ModbusRTUDiagnosticsRequest extends ModbusRTURequest {
     subFunction: number = 0x00;
     diagnosticData: Uint8Array = new Uint8Array();
 
-    Response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUDiagnosticsResponse;
+    response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUDiagnosticsResponse;
 
     get data(): Uint8Array {
         return concatArrayBuffers(this.addrFunc(), concatArrayBuffers(Uint16Array.from([this.subFunction]), this.diagnosticData));
@@ -204,12 +203,12 @@ class ModbusRTUDiagnosticsResponse extends ModbusRTUResponse {
     }
 }
 
-export class ModbusRTUReadRegisterRequest extends ModbusRTURequest implements IRequest {
+export class ModbusRTUReadRegisterRequest extends ModbusRTURequest {
     function = 0x03;
     register: number = 0;
     numRegisters: number = 1; // 16-bit registers
 
-    Response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUReadRegisterResponse;
+    response: new(bytes: Uint8Array, request: IRequest) => IResponse = ModbusRTUReadRegisterResponse;
 
     get data(): Uint8Array {
         // Create a buffer and DataView for the register and numRegisters
@@ -236,7 +235,7 @@ export class ModbusRTUReadRegisterRequest extends ModbusRTURequest implements IR
     }
 
     constructor(address: number, register: number, numRegisters: number) {
-        super(address)
+        super(address);
         this.register = register;
         this.numRegisters = numRegisters;
     }
@@ -275,7 +274,7 @@ export class ModbusRTUReadRegisterResponse extends ModbusRTUResponse {
     }
 }
 
-export class ModbusRTUWriteSingleRegisterRequest extends ModbusRTURequest implements IRequest {
+export class ModbusRTUWriteSingleRegisterRequest extends ModbusRTURequest {
     function: number = 0x06;
     register: number = 0;
     registerValue: number = 0;
@@ -283,7 +282,6 @@ export class ModbusRTUWriteSingleRegisterRequest extends ModbusRTURequest implem
     get data(): Uint8Array {
         return concatArrayBuffers(this.addrFunc(), Uint16Array.from([this.register, this.registerValue]));
     }
-
 
     get expectedLength(): number {
         // Address, function, CRC-16, 2 bytes for register address, 2 bytes for value.
@@ -297,7 +295,7 @@ export class ModbusRTUWriteSingleRegisterRequest extends ModbusRTURequest implem
     }
 }
 
-export class ModbusRTUWriteMultipleRegisterRequest extends ModbusRTURequest implements IRequest {
+export class ModbusRTUWriteMultipleRegisterRequest extends ModbusRTURequest {
     function: number = 0x10;
     startRegister: number = 0;
     registerValues: number[] = [];
@@ -320,46 +318,97 @@ export class ModbusRTUWriteMultipleRegisterRequest extends ModbusRTURequest impl
     }
 }
 
-export class ModbusRTUDevice extends ModbusDevice {
-    protocolType: DeviceProtocol = DeviceProtocol.RTU;
-    static TypeName = "Generic Modbus-RTU Compatible";
-
-    constructor(device?: TDevice, impl?: IImplementation) {
-        super(device, impl);
-    }
-
-    ToString(): string {
-        return `${ModbusRTUDevice.TypeName} Device (${this.manufacturer} ${this.model}) at address ${this.address}`;
-    }
-
-    static async discoverFunction(comm: ICommunication, discoverOpts: IDiscoverOptions): Promise<TDevice[]> {
-        const devices: TDevice[] = [];
-        for (let i = discoverOpts.startAddress; i < discoverOpts.startAddress + discoverOpts.addressCount; i++) {
-            try {
-                const req = new ModbusRTUDiagnosticsRequest(i);
-                const res = await comm.Request(req) as ModbusRTUDiagnosticsResponse;
-
-                if(!res.isValid()) {
-                    comm.Debug(`Invalid response from device at address ${i}: ${res.validationError}`);
-                    continue;
-                }
-                const device = new ModbusRTUDevice();
-                device.address = i;
-                device.discoveryStatus = "RTU Echo Test Passed";
-                devices.push(device);
-
-            } catch (error: any) {
-                if(isTimeoutError(error)) {
-                    // Do not report timeouts during discovery.
-                    continue;
-                }
-
-                // TODO: Check for timeout and do not report.
-                // Timeouts will occur when a device is not present.
-                comm.Error(`Error during discovery: ${error}`);
+export const ModbusRTUDiscoveryFunction = async (startAddress: number, addressCount: number, channel: ICommunicationChannel): Promise<InstanceType<typeof ModbusRTUDevice>[]> => {
+    const devices: InstanceType<typeof ModbusRTUDevice>[] = [];
+    for (let i = startAddress; i < startAddress + addressCount; i++) {
+        try {
+            const req = new ModbusRTUDiagnosticsRequest(i);
+            const res = await channel.request(req) as ModbusRTUDiagnosticsResponse;
+            if(!res.isValid()) {
+                channel.debug(`Invalid response from device at address ${i}: ${res.validationError}`);
+                continue;
             }
+            const device = new ModbusRTUDevice();
+            device.setAddress(i);
+            device.setDiscoveryStatus("RTU Echo Test Passed");
+            devices.push(device);
+
+        } catch (error: any) {
+            if(isTimeoutError(error)) {
+                // Do not report timeouts during discovery.
+                continue;
+            }
+
+            // TODO: Check for timeout and do not report.
+            // Timeouts will occur when a device is not present.
+            channel.error(`Error during discovery: ${error}`);
         }
-        return devices;
     }
+    return devices;
+};
+
+export const ModbusRTUDeduplicationFunction = (devices: Device[]): Device[] => {
+    const deviceMap = new Map<number, ModbusRTUDevice>();
+
+    for (const d of devices as ModbusRTUDevice[]) {
+        deviceMap.set(d.getAddress(), d);
+    }
+
+    return Array.from(deviceMap.values());
+};
+
+export function ModbusRTUProtocol<TBase extends new (...args: any[]) => Device>(Base: TBase) {
+    const ModbusRTUDevice = class extends Base {
+        address: number = -1;
+        constructor(...args: any[]) {
+            super(...args);
+            // Ensure the class is marked as a communication protocol
+            (this as any)[CommunicationProtocolSymbol] = true;
+        }
+
+        setAddress(address: number): void {
+            this.address = address;
+        }
+
+        getAddress(): number {
+            return this.address;
+        }
+
+        async readRegister(registerAddress: number, numRegisters: number, channel: ICommunicationChannel): Promise<number> {
+            const req = new ModbusRTUReadRegisterRequest(this.address, registerAddress, numRegisters);
+            const res = await channel.request(req) as ModbusRTUReadRegisterResponse;
+            if(!res.isValid()) {
+                channel.debug(`Invalid response from device at address ${this.address}: ${res.validationError}`);
+                return Promise.reject();
+            }
+            this.registers[registerAddress] = res.registerValues[0];
+            return this.registers[registerAddress];
+        }
+
+        async writeRegister(address: number, value: number, channel: ICommunicationChannel): Promise<void> {
+            const req = new ModbusRTUWriteSingleRegisterRequest(this.address, address, value);
+            const res = await channel.request(req);
+            if(!res.isValid()) {
+                channel.debug(`Invalid response from device at address ${this.address}: ${res.validationError}`);
+                return Promise.reject();
+            }
+            this.registers[address] = value;
+        }
+
+        async readCoil(address: number, numCoils: number, channel: ICommunicationChannel): Promise<boolean> {
+            console.log("MODBUSRTU READ COIL");
+            return true;
+        }
+
+        async writeCoil(address: number, value: boolean, channel: ICommunicationChannel): Promise<void> {
+            console.log("MODBUSRTU WRITE COIL");
+        }
+
+    }
+
+    return ModbusRTUDevice;
 
 }
+
+export const ModbusRTUDevice = ModbusRTUProtocol(Device);
+type ModbusRTUDevice = InstanceType<typeof ModbusRTUDevice>;

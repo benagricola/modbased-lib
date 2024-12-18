@@ -7,10 +7,17 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "plugins": [
+      {
+        "name": "@yaml-js/typescript"
+      }
+    ]
   },
   "include": [
     "main.ts",
+    "src/devices/yaml.d.ts",
     "src/**/*"
   ],
   "exclude": [
