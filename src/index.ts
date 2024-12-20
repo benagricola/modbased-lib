@@ -2,7 +2,9 @@ export * from './device';
 export * from './definition';
 export * from './communication';
 
-export * from './channels'
+// Do not export channels, as these are implementation
+// specific.
+
 export * from './devices'
 export * from './discoverygroups'
 export * from './loaders'
