@@ -54,7 +54,7 @@ export const ShihlinSL3DiscoveryFunction = async (startAddress: number, addressC
             }
 
             device.setDiscoveryStatus("Device-specific register read successful");
-            const model = decodeInverterModel(modelData);
+            const model = decodeInverterModel(modelData[0]);
             device.setVfdProperties(model.voltage, model.phases, model.power);
             devices.push(device);
 
