@@ -103,6 +103,7 @@ export class NodeUSBChannel implements ICommunicationChannel {
             }, roundTripDelay + this.options.timeout);
 
             // Write the request to the port.
+            // console.log("REQ ", req.buffer);
             this.port.write(req.buffer);
             this.port.drain();
 
@@ -141,8 +142,8 @@ export class NodeUSBChannel implements ICommunicationChannel {
             this.timeoutId = null;
         }
 
-        const xData = this.receivedData;
-        currentRequest.resolve(new currentRequest.req.response(xData, currentRequest.req));
+        // console.log("RES ", this.receivedData);
+        currentRequest.resolve(new currentRequest.req.response(this.receivedData, currentRequest.req));
         this.flushPort();
     }
 

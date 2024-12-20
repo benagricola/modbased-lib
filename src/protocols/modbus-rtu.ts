@@ -19,6 +19,11 @@ export function DataToNumber(data: Uint8Array): number {
     return dv.getUint16(0, false);
 }
 
+export enum ModbusRTURegisterType {
+    INPUT = 0x04,
+    HOLDING = 0x03,
+}
+
 export interface IModbusRTURequest extends IRequest {
     address: number;
     function: number;
@@ -234,10 +239,13 @@ export class ModbusRTUReadRegisterRequest extends ModbusRTURequest {
         return super.expectedLength + 1 + (this.numRegisters * 2);
     }
 
-    constructor(address: number, register: number, numRegisters: number) {
+    constructor(address: number, register: number, numRegisters: number, registerType? : ModbusRTURegisterType) {
         super(address);
         this.register = register;
         this.numRegisters = numRegisters;
+        if(registerType) {
+            this.function = registerType;
+        }
     }
 }
 
@@ -347,6 +355,9 @@ export const ModbusRTUDiscoveryFunction = async (startAddress: number, addressCo
     return devices;
 };
 
+// Modbus RTU devices can be deduplicated based on their addresses matching.
+// This is necessary in case we have multiple discovery methods, for example if a
+// specific device type has a more targeted discovery method.
 export const ModbusRTUDeduplicationFunction = (devices: Device[]): Device[] => {
     const deviceMap = new Map<number, ModbusRTUDevice>();
 
@@ -374,15 +385,19 @@ export function ModbusRTUProtocol<TBase extends new (...args: any[]) => Device>(
             return this.address;
         }
 
-        async readRegister(registerAddress: number, numRegisters: number, channel: ICommunicationChannel): Promise<number> {
-            const req = new ModbusRTUReadRegisterRequest(this.address, registerAddress, numRegisters);
+        async readRegister(registerAddress: number, numRegisters: number, channel: ICommunicationChannel, registerType?: ModbusRTURegisterType): Promise<number[]> {
+            const req = new ModbusRTUReadRegisterRequest(this.address, registerAddress, numRegisters, registerType);
             const res = await channel.request(req) as ModbusRTUReadRegisterResponse;
             if(!res.isValid()) {
                 channel.debug(`Invalid response from device at address ${this.address}: ${res.validationError}`);
                 return Promise.reject();
             }
-            this.registers[registerAddress] = res.registerValues[0];
-            return this.registers[registerAddress];
+
+            for (let i = 0; i < numRegisters; i++) {
+                this.registers[registerAddress + i] = res.registerValues[i];
+            }
+
+            return res.registerValues;
         }
 
         async writeRegister(address: number, value: number, channel: ICommunicationChannel): Promise<void> {

@@ -1,4 +1,4 @@
-import { ShihlinSL3DiscoveryFunction } from "../devices/shihlin-sl3";
+import { ShihlinSL3DiscoveryFunction } from "../devices/shihlin-sl3/device";
 import { ModbusRTUDiscoveryFunction, ModbusRTUDeduplicationFunction } from "../protocols/modbus-rtu";
 import { DeviceFactory } from "../device";
 

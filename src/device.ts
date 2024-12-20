@@ -1,4 +1,5 @@
 import { CommunicationProtocolSymbol, ICommunicationChannel, ICommunicationProtocol } from "./communication";
+import { IDefinitionLoader } from "./definition";
 
 // Protocol types
 export enum DeviceProtocol {
@@ -34,7 +35,7 @@ export type TDeviceRegisterOptions = {
 }
 
 // Device register definitions
-export type TDeviceRegisterDefinition = {
+export interface IDeviceRegisterDefinition {
     name: string;
     type: DeviceRegisterType;
     description: string;
@@ -45,7 +46,7 @@ export type TDeviceRegisterDefinition = {
     writeFormat?(value: string): number[];
 }
 export type TDeviceRegisterDefinitions = {
-    [address: string]: TDeviceRegisterDefinition;
+    [address: string]: IDeviceRegisterDefinition;
 }
 export type TDeviceRegisterValue = number;
 
@@ -92,7 +93,6 @@ export interface IDeduplicatable {
     (devices: Device[]): Device[];
 }
 
-
 export class DeviceFactory {
     static discoveryFunctions: IDiscoverable[] = [];
     static deduplicationFunctions: IDeduplicatable[] = [];
@@ -105,7 +105,7 @@ export class DeviceFactory {
         this.deduplicationFunctions.push(deduplicationFunction);
     }
 
-    static async discover(startAddress: number, addressCount: number, channel: ICommunicationChannel): Promise<Device[]> {
+    static async discover(startAddress: number, addressCount: number, channel: ICommunicationChannel, definitionLoader: IDefinitionLoader): Promise<Device[]> {
         let devices = [];
         for (const discoveryFunction of this.discoveryFunctions) {
             devices.push(...await discoveryFunction(startAddress, addressCount, channel));
@@ -114,6 +114,10 @@ export class DeviceFactory {
         // Deduplicate devices based on address, prioritising the last device found.
         for (const deduplicationFunction of this.deduplicationFunctions) {
             devices = deduplicationFunction(devices);
+        }
+
+        for (const device of devices) {
+            device.setDefinitionLoader(definitionLoader);
         }
 
         return devices;
@@ -125,25 +129,10 @@ export class Device implements IDevice {
     model: string = "unknown";
     discoveryStatus: string = "";
 
+    definitionLoader: IDefinitionLoader | null = null;
+
     protected registers: TDeviceRegisters = {};
     protected coils: TDeviceCoils = {};
-
-    registerDefinitions: TDeviceRegisterDefinitions = {};
-    coilDefinitions: TDeviceCoilDefinitions = {};
-
-    private static discoveryFunctions: IDiscoverable[] = [];
-
-    static async discover(startAddress: number, addressCount: number, channel: ICommunicationChannel): Promise<Device[]> {
-        const devices = [];
-        for (const discoveryFunction of this.discoveryFunctions) {
-            devices.push(...await discoveryFunction(startAddress, addressCount, channel));
-        }
-        return devices;
-    }
-
-    static addDiscoveryFunction(method: IDiscoverable): void {
-        this.discoveryFunctions.push(method);
-    }
 
     setDiscoveryStatus(status: string): void {
         this.discoveryStatus = status;
@@ -167,6 +156,15 @@ export class Device implements IDevice {
 
     getCoils(): TDeviceCoils {
         return this.coils;
+    }
+
+
+    setDefinitionLoader(definitionLoader: IDefinitionLoader): void {
+        this.definitionLoader = definitionLoader;
+    }
+
+    getDefinitionLoader(): IDefinitionLoader | null {
+        return this.definitionLoader;
     }
 
     getCommunicationProtocol(): ICommunicationProtocol {

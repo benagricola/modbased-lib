@@ -46,7 +46,7 @@ export class CommunicationTimeoutError extends CommunicationError {
 // Communication protocols are dependant on the device being communicated with.
 export interface ICommunicationProtocol {
     discover: (startAddress: number, addressCount: number) => Promise<IDevice[]>;
-    readRegister: (address: number) => Promise<number>;
+    readRegister: (address: number, addressCount: number, comm: ICommunicationChannel) => Promise<number[]>;
     writeRegister: (address: number, value: number) => Promise<void>;
     readCoil: (address: number) => Promise<boolean>;
     writeCoil: (address: number, value: boolean) => Promise<void>;
