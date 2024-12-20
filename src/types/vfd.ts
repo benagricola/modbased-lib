@@ -1,5 +1,3 @@
-import { DeviceGroup, IDeviceType } from '../device';
-
 export function VFDDeviceType<TBase extends new (...args: any[]) => {}>(Base: TBase) {
     return class extends Base {
         private voltage: number = 0;

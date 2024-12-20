@@ -1,5 +1,5 @@
 import { ICommunicationChannel, CommunicationProtocolSymbol, IRequest, IResponse } from '../communication';
-import { Device, DeviceFactory } from '../device';
+import { Device } from '../device';
 import { crc16 } from '../util/crc';
 
 import { isTimeoutError } from '../util/guards';

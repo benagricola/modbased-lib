@@ -11,6 +11,7 @@ const decodeTemperatureAndHumidity = (data: number[]): { temperature: number, hu
         humidity: data[1] / 10
     }
 }
+
 // Discover Shihlin SL3 devices and instantiate them as an instance of ShihlinSL3Device
 export const SHT20DiscoveryFunction = async (startAddress: number, addressCount: number, channel: ICommunicationChannel) => {
     const devices: SHT20Device[] = [];
@@ -58,6 +59,7 @@ export function SHT20<TBase extends new (...args: any[]) => Device>(Base: TBase)
 
             return decodeTemperatureAndHumidity(await res);
         }
+
         ToString(): string {
             const tempString = (this as unknown as InstanceType<ReturnType<typeof TemperatureSensorDeviceType>>).ToString();
             const humidString = (this as unknown as  InstanceType<ReturnType<typeof HumiditySensorDeviceType>>).ToString();
