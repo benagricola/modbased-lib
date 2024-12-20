@@ -177,5 +177,4 @@ export class Device implements IDevice {
     hasCommunicationProtocol(): boolean {
         return (this as any)[CommunicationProtocolSymbol] === true;
     }
-
 }

@@ -1,6 +1,7 @@
 import { ModbusRTUDevice, ModbusRTURegisterType } from "../../protocols/modbus-rtu";
-import { Device, DeviceRegisterType } from "../../device";
-import { TemperatureSensorDeviceType } from "../../types/tempsensor";
+import { Device } from "../../device";
+import { TemperatureSensorDeviceType } from "../../types/sensors/temperature";
+import { HumiditySensorDeviceType } from "../../types/sensors/humidity";
 import { ICommunicationChannel } from "../../communication";
 import { isTimeoutError } from "../../util/guards";
 
@@ -23,7 +24,8 @@ export const SHT20DiscoveryFunction = async (startAddress: number, addressCount:
             }
 
             const tandH = decodeTemperatureAndHumidity(res);
-            device.setProperties(tandH.temperature, tandH.humidity);
+            device.setTemperature(tandH.temperature);
+            device.setHumidity(tandH.humidity);
 
             device.setDiscoveryStatus("Device-specific register read successful");
             devices.push(device);
@@ -56,10 +58,15 @@ export function SHT20<TBase extends new (...args: any[]) => Device>(Base: TBase)
 
             return decodeTemperatureAndHumidity(await res);
         }
+        ToString(): string {
+            const tempString = (this as unknown as InstanceType<ReturnType<typeof TemperatureSensorDeviceType>>).ToString();
+            const humidString = (this as unknown as  InstanceType<ReturnType<typeof HumiditySensorDeviceType>>).ToString();
+            return `${tempString}, ${humidString}`;
+        }
     }
 
     return SHT20Device;
 }
 
-export const SHT20Device = SHT20(TemperatureSensorDeviceType(ModbusRTUDevice));
+export const SHT20Device = SHT20(TemperatureSensorDeviceType(HumiditySensorDeviceType(ModbusRTUDevice)));
 export type SHT20Device  = InstanceType<typeof SHT20Device>;
