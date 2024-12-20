@@ -7,14 +7,14 @@
   "version": "1.0.0",
   "description": "A modbus and modbus-like device-descriptor system, enabling discovery, enumeration and configuration of devices. Device not supported? Add it here!",
   "type": "module",
-  "main": "main.js",
+  "main": "src/index.js",
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
     "typescript": "^5.7.2"
   },
   "scripts": {
     "build": "tsc --build tsconfig.json",
-    "demo": "node main.ts"
+    "demo": "node example/main.ts"
   },
   "keywords": [],
   "author": "",
