@@ -3,7 +3,7 @@
     "@types/node": "^22.10.2",
     "serialport": "^12.0.0"
   },
-  "name": "modbased",
+  "name": "@modbased/lib",
   "version": "1.0.0",
   "description": "A modbus and modbus-like device-descriptor system, enabling discovery, enumeration and configuration of devices. Device not supported? Add it here!",
   "type": "module",
