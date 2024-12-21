@@ -1,5 +1,9 @@
+import { DeviceType } from '../device';
+
 export function VFDDeviceType<TBase extends new (...args: any[]) => {}>(Base: TBase) {
     return class extends Base {
+        type = DeviceType.VFD;
+
         private voltage: number = 0;
         private phases: number = 0;
         private power: number = 0;

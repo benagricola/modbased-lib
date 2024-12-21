@@ -17,9 +17,9 @@ export enum DeviceGroup {
 
 // Device types
 export enum DeviceType {
-    Unknown = "unknown",
     Generic = "generic",
-    Shihlin = "shihlin", // TODO: This doesn't feel right, Shihlink is a manufacturer.
+    Sensor = "sensor",
+    VFD = "vfd",
 }
 
 // Device register types
@@ -80,6 +80,7 @@ export interface IDiscoverable {
 
 export interface IDevice {
     getName(): string;
+    getType(): string;
     getRegisters(): TDeviceRegisters;
     getCoils(): TDeviceCoils;
     getCommunicationProtocol(symbol: Symbol): ICommunicationProtocolMixin | undefined;
@@ -126,6 +127,8 @@ export class DeviceFactory {
 export class Device implements IDevice {
     manufacturer: string = "unknown";
     model: string = "unknown";
+    type: DeviceType = DeviceType.Generic;
+
     discoveryStatus: string = "";
 
     protected protocols: Map<symbol, ICommunicationProtocolMixin> = new Map();
@@ -151,6 +154,10 @@ export class Device implements IDevice {
         return `${this.manufacturer} ${this.model}`;
     }
 
+    getType(): string {
+        return this.type;
+    }
+
     getRegisters(): TDeviceRegisters {
         return this.registers;
     }
@@ -158,7 +165,6 @@ export class Device implements IDevice {
     getCoils(): TDeviceCoils {
         return this.coils;
     }
-
 
     setDefinitionLoader(definitionLoader: IDefinitionLoader): void {
         this.definitionLoader = definitionLoader;

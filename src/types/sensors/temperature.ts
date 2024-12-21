@@ -1,5 +1,9 @@
+import { DeviceType } from '../../device';
+
 export function TemperatureSensorDeviceType<TBase extends new (...args: any[]) => {}>(Base: TBase) {
     return class extends Base {
+        type = DeviceType.Sensor;
+
         private temperature: number = 0;
 
         getTemperature() {
