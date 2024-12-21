@@ -77,6 +77,10 @@ export class NodeUSBChannel implements ICommunicationChannel {
         });
     }
 
+    isOpen(): boolean {
+        return this.port.isOpen;
+    }
+
     async request(req: IRequest): Promise<IResponse> {
         if (!this.port.isOpen) {
             throw new Error("Port is not open.");
