@@ -43,6 +43,11 @@ export class CommunicationTimeoutError extends CommunicationError {
     }
 }
 
+// Define protocol type interface
+export interface ICommunicationProtocolMixin {
+    [CommunicationProtocolSymbol]: boolean;
+}
+
 // Communication protocols are dependant on the device being communicated with.
 export interface ICommunicationProtocol {
     discover: (startAddress: number, addressCount: number) => Promise<IDevice[]>;

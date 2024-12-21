@@ -1,4 +1,4 @@
-import { ModbusRTUDevice, ModbusRTURegisterType } from "../../protocols/modbus-rtu";
+import { ModbusRTUDevice, ModbusRTURegisterType, ModbusRTUSymbol } from "../../protocols/modbus-rtu";
 import { Device } from "../../device";
 import { TemperatureSensorDeviceType } from "../../types/sensors/temperature";
 import { HumiditySensorDeviceType } from "../../types/sensors/humidity";
@@ -55,7 +55,10 @@ export function SHT20<TBase extends new (...args: any[]) => Device>(Base: TBase)
         }
 
         async readTemperatureAndHumidity(channel: ICommunicationChannel): Promise<{ temperature: number, humidity: number }> {
-            const protocol = this.getCommunicationProtocol() as unknown as InstanceType<typeof ModbusRTUDevice>;
+            const protocol = this.getCommunicationProtocol<ModbusRTUDevice>(ModbusRTUSymbol);
+            if(!protocol) {
+                throw new Error('Modbus RTU protocol not available');
+            }
             const res = protocol.readRegister(0x0001, 2, channel, ModbusRTURegisterType.INPUT);
 
             return decodeTemperatureAndHumidity(await res);

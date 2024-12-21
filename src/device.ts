@@ -1,5 +1,4 @@
-import { CommunicationProtocolSymbol } from "./communication";
-import type { ICommunicationChannel, ICommunicationProtocol } from "./communication";
+import type { ICommunicationProtocolMixin, ICommunicationChannel, ICommunicationProtocol } from "./communication";
 import type { IDefinitionLoader } from "./definition";
 
 // Protocol types
@@ -83,8 +82,7 @@ export interface IDevice {
     getName(): string;
     getRegisters(): TDeviceRegisters;
     getCoils(): TDeviceCoils;
-    getCommunicationProtocol(): ICommunicationProtocol;
-    hasCommunicationProtocol(): boolean;
+    getCommunicationProtocol(symbol: Symbol): ICommunicationProtocolMixin | undefined;
     setManufacturer(manufacturer: string): void;
     setModel(model: string): void;
     setDiscoveryStatus(status: string): void;
@@ -130,6 +128,8 @@ export class Device implements IDevice {
     model: string = "unknown";
     discoveryStatus: string = "";
 
+    protected protocols: Map<symbol, ICommunicationProtocolMixin> = new Map();
+
     definitionLoader: IDefinitionLoader | null = null;
 
     protected registers: TDeviceRegisters = {};
@@ -168,14 +168,7 @@ export class Device implements IDevice {
         return this.definitionLoader;
     }
 
-    getCommunicationProtocol(): ICommunicationProtocol {
-        if(this.hasCommunicationProtocol()) {
-            return this as unknown as ICommunicationProtocol;
-        }
-        throw new Error("Device has no communication protocol attached");
-    }
-
-    hasCommunicationProtocol(): boolean {
-        return (this as any)[CommunicationProtocolSymbol] === true;
+    getCommunicationProtocol<T extends ICommunicationProtocolMixin>(symbol: symbol): T | undefined {
+        return this.protocols.get(symbol) as T;
     }
 }

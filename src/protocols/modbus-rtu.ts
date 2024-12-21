@@ -1,8 +1,10 @@
-import { CommunicationProtocolSymbol } from '../communication';
+import { CommunicationProtocolSymbol, ICommunicationProtocolMixin } from '../communication';
 import { Device } from '../device';
 import { crc16 } from '../util/crc';
 import { isTimeoutError } from '../util/guards';
 import type { ICommunicationChannel, IRequest, IResponse } from '../communication';
+
+export const ModbusRTUSymbol = Symbol("ModbusRTU");
 
 const ModbusMinAddress = 1;
 const ModbusMaxAddress = 247;
@@ -374,8 +376,12 @@ export function ModbusRTUProtocol<TBase extends new (...args: any[]) => Device>(
         constructor(...args: any[]) {
             super(...args);
             // Ensure the class is marked as a communication protocol
-            (this as any)[CommunicationProtocolSymbol] = true;
+            // and register the protocol with the device.
+            this[CommunicationProtocolSymbol] = true;
+            this.protocols.set(ModbusRTUSymbol, this as ICommunicationProtocolMixin);
         }
+
+        [CommunicationProtocolSymbol]: boolean = true;
 
         setAddress(address: number): void {
             this.address = address;
@@ -426,4 +432,4 @@ export function ModbusRTUProtocol<TBase extends new (...args: any[]) => Device>(
 }
 
 export const ModbusRTUDevice = ModbusRTUProtocol(Device);
-type ModbusRTUDevice = InstanceType<typeof ModbusRTUDevice>;
+export type ModbusRTUDevice = InstanceType<typeof ModbusRTUDevice>;
