@@ -1,4 +1,5 @@
-import { TDeviceRegisterDefinitions, TDeviceRegisterOptions, DeviceRegisterType } from "../../device";
+import { DeviceRegisterType } from "../../device";
+import type { TDeviceRegisterDefinitions, TDeviceRegisterOptions } from "../../device";
 
 const displayHz = (response: number[]): string => {
     return `${response[0]}Hz`;

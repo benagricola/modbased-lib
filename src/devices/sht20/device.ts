@@ -2,8 +2,9 @@ import { ModbusRTUDevice, ModbusRTURegisterType } from "../../protocols/modbus-r
 import { Device } from "../../device";
 import { TemperatureSensorDeviceType } from "../../types/sensors/temperature";
 import { HumiditySensorDeviceType } from "../../types/sensors/humidity";
-import { ICommunicationChannel } from "../../communication";
 import { isTimeoutError } from "../../util/guards";
+
+import type { ICommunicationChannel } from "../../communication";
 
 const decodeTemperatureAndHumidity = (data: number[]): { temperature: number, humidity: number } => {
     return {
