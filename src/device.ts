@@ -11,15 +11,15 @@ export enum DeviceProtocol {
 
 // Device groups
 export enum DeviceGroup {
-    Unknown = "unknown",
-    VFD     = "vfd",
+    Unknown = "Unknown",
+    VFD     = "VFD",
 }
 
 // Device types
 export enum DeviceType {
-    Generic = "generic",
-    Sensor = "sensor",
-    VFD = "vfd",
+    Generic = "Generic",
+    Sensor = "Sensor",
+    VFD = "VFD",
 }
 
 // Device register types
@@ -125,8 +125,8 @@ export class DeviceFactory {
 }
 
 export class Device implements IDevice {
-    manufacturer: string = "unknown";
-    model: string = "unknown";
+    manufacturer: string = "Unknown";
+    model: string = "Unknown";
     type: DeviceType = DeviceType.Generic;
 
     discoveryStatus: string = "";
