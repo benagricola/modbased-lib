@@ -1,9 +1,11 @@
 import { VFDDeviceType } from "../../types/vfd";
 import { ModbusRTUDevice } from "../../protocols/modbus-rtu";
-import { Device, TDeviceRegisterDefinitions } from "../../device";
-import { ICommunicationChannel } from "../../communication";
+import { Device } from "../../device";
 import { isTimeoutError } from "../../util/guards";
 import { registerDefinitions } from "./registers";
+
+import type { TDeviceRegisterDefinitions } from "../../device";
+import type { ICommunicationChannel } from "../../communication";
 
 // Map inverter model numbers to the relevant details
 export type ShihlinInverterModel = {

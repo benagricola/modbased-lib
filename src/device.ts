@@ -1,5 +1,6 @@
-import { CommunicationProtocolSymbol, ICommunicationChannel, ICommunicationProtocol } from "./communication";
-import { IDefinitionLoader } from "./definition";
+import { CommunicationProtocolSymbol } from "./communication";
+import type { ICommunicationChannel, ICommunicationProtocol } from "./communication";
+import type { IDefinitionLoader } from "./definition";
 
 // Protocol types
 export enum DeviceProtocol {

@@ -1,4 +1,4 @@
-import { IDevice } from "./device";
+import type { IDevice } from "./device";
 
 export const CommunicationProtocolSymbol = Symbol("CommunicationProtocol");
 

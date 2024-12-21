@@ -1,5 +1,5 @@
-import { IDefinitionLoader } from "../definition";
-import { TDeviceRegisterDefinitions } from "../device";
+import type { IDefinitionLoader } from "../definition";
+import type { TDeviceRegisterDefinitions } from "../device";
 
 export class LocalFileDefinitionLoader implements IDefinitionLoader {
     loaded: boolean = false;
