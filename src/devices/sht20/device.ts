@@ -63,12 +63,6 @@ export function SHT20<TBase extends new (...args: any[]) => Device>(Base: TBase)
 
             return decodeTemperatureAndHumidity(await res);
         }
-
-        ToString(): string {
-            const tempString = (this as unknown as InstanceType<ReturnType<typeof TemperatureSensorDeviceType>>).ToString();
-            const humidString = (this as unknown as  InstanceType<ReturnType<typeof HumiditySensorDeviceType>>).ToString();
-            return `${tempString}, ${humidString}`;
-        }
     }
 
     return SHT20Device;

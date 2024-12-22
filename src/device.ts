@@ -85,9 +85,11 @@ export interface IDevice {
     getCoils(): TDeviceCoils;
     getCommunicationProtocol(symbol: Symbol): ICommunicationProtocolMixin | undefined;
     getCommunicationProtocols(): CommunicationProtocolRecords;
+    getComponentStatuses(): string[];
     setManufacturer(manufacturer: string): void;
     setModel(model: string): void;
     setDiscoveryStatus(status: string): void;
+    toString(): string;
 }
 
 export interface IDeduplicatable {
@@ -181,5 +183,23 @@ export class Device implements IDevice {
 
     getCommunicationProtocols(): CommunicationProtocolRecords {
         return this.protocols;
+    }
+
+    getComponentStatuses(): string[] {
+        // Iterate over the prototype chain, running the getStatus method
+        // of each mixin to build a string representation of the device.
+        const statuses = [];
+        let proto = Object.getPrototypeOf(this);
+        while (proto) {
+            if (proto.hasOwnProperty("getStatus")) {
+                statuses.push(proto.getStatus.call(this));
+            }
+            proto = Object.getPrototypeOf(proto);
+        }
+        return statuses;
+    }
+
+    toString(): string {
+        return `${this.getName()} (${this.getComponentStatuses().join(", ")})`;
     }
 }

@@ -24,8 +24,8 @@ export function VFDDeviceType<TBase extends new (...args: any[]) => {}>(Base: TB
             this.power = power;
         }
 
-        ToString(): string {
-            return `VFD at voltage ${this.voltage}, ${this.phases} phases, and ${this.power} power`;
+        getStatus(): string[] {
+            return [`Voltage: ${this.voltage}v`, `Phases: ${this.phases}ph`, `Power: ${this.power}kW`];
         };
     };
 }

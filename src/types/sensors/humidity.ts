@@ -14,8 +14,8 @@ export function HumiditySensorDeviceType<TBase extends new (...args: any[]) => {
             this.humidity = humidity;
         }
 
-        ToString(): string {
-            return `Humidity Sensor at ${this.humidity}% humidity`;
+        getStatus(): string[] {
+            return [`Humidity: ${this.humidity}%`]
         };
     };
 }

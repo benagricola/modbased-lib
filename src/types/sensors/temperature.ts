@@ -14,8 +14,8 @@ export function TemperatureSensorDeviceType<TBase extends new (...args: any[]) =
             this.temperature = temperature;
         }
 
-        ToString(): string {
-            return `Temperature Sensor at ${this.temperature}°C`;
+        getStatus(): string[] {
+            return [`Temperature: ${this.temperature}°C`]
         };
     };
 }
