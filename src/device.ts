@@ -85,7 +85,7 @@ export interface IDevice {
     getCoils(): TDeviceCoils;
     getCommunicationProtocol(symbol: Symbol): ICommunicationProtocolMixin | undefined;
     getCommunicationProtocols(): CommunicationProtocolRecords;
-    getComponentStatuses(): string[];
+    getComponentStatus(): string[];
     setManufacturer(manufacturer: string): void;
     setModel(model: string): void;
     setDiscoveryStatus(status: string): void;
@@ -185,14 +185,14 @@ export class Device implements IDevice {
         return this.protocols;
     }
 
-    getComponentStatuses(): string[] {
-        // Iterate over the prototype chain, running the getStatus method
-        // of each mixin to build a string representation of the device.
+    // Iterate over the prototype chain, running the getStatus method
+    // of each mixin to build a string representation of the device.
+    getComponentStatus(): string[] {
         const statuses = [];
         let proto = Object.getPrototypeOf(this);
         while (proto) {
             if (proto.hasOwnProperty("getStatus")) {
-                statuses.push(proto.getStatus.call(this));
+                statuses.push(...proto.getStatus.call(this) as string[]);
             }
             proto = Object.getPrototypeOf(proto);
         }
@@ -200,6 +200,6 @@ export class Device implements IDevice {
     }
 
     toString(): string {
-        return `${this.getName()} (${this.getComponentStatuses().join(", ")})`;
+        return `${this.getName()} (${this.getComponentStatus().join(", ")})`;
     }
 }
