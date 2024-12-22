@@ -377,7 +377,6 @@ export function ModbusRTUProtocol<TBase extends new (...args: any[]) => Device>(
             super(...args);
             // Ensure the class is marked as a communication protocol
             // and register the protocol with the device.
-            this[CommunicationProtocolSymbol] = true;
             this.protocols.set(ModbusRTUSymbol, this as ICommunicationProtocolMixin);
         }
 

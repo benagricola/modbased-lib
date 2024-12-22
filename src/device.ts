@@ -178,6 +178,7 @@ export class Device implements IDevice {
     getCommunicationProtocol<T extends ICommunicationProtocolMixin>(symbol: symbol): T | undefined {
         return this.protocols.get(symbol) as T;
     }
+
     getCommunicationProtocols(): Map<symbol, ICommunicationProtocolMixin> {
         return this.protocols;
     }
