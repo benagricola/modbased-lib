@@ -84,7 +84,7 @@ export interface IDevice {
     getRegisters(): TDeviceRegisters;
     getCoils(): TDeviceCoils;
     getCommunicationProtocol(symbol: Symbol): ICommunicationProtocolMixin | undefined;
-    getCommunicationProtocols(): Map<symbol, ICommunicationProtocolMixin>;
+    getCommunicationProtocols(): Map<Symbol, ICommunicationProtocolMixin>;
     setManufacturer(manufacturer: string): void;
     setModel(model: string): void;
     setDiscoveryStatus(status: string): void;
@@ -179,7 +179,7 @@ export class Device implements IDevice {
         return this.protocols.get(symbol) as T;
     }
 
-    getCommunicationProtocols(): Map<symbol, ICommunicationProtocolMixin> {
+    getCommunicationProtocols(): Map<Symbol, ICommunicationProtocolMixin> {
         return this.protocols;
     }
 }
