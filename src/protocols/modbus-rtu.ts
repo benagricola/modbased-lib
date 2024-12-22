@@ -1,8 +1,8 @@
-import { CommunicationProtocolSymbol, ICommunicationProtocolMixin } from '../communication';
+import { CommunicationProtocolSymbol } from '../communication';
 import { Device } from '../device';
 import { crc16 } from '../util/crc';
 import { isTimeoutError } from '../util/guards';
-import type { ICommunicationChannel, IRequest, IResponse } from '../communication';
+import type { ICommunicationProtocolMixin, ICommunicationChannel, IRequest, IResponse } from '../communication';
 
 export const ModbusRTUSymbol = Symbol("ModbusRTU");
 
