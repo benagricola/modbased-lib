@@ -15,7 +15,7 @@ export function HumiditySensorDeviceType<TBase extends new (...args: any[]) => {
         }
 
         getStatus(): string[] {
-            return [`Humidity: ${this.humidity.toFixed(2)}%`]
+            return [`Humidity: ${this.humidity.toLocaleString()}%`]
         };
     };
 }

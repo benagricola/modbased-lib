@@ -15,7 +15,7 @@ export function TemperatureSensorDeviceType<TBase extends new (...args: any[]) =
         }
 
         getStatus(): string[] {
-            return [`Temperature: ${this.temperature.toFixed(2)}°C`]
+            return [`Temperature: ${this.temperature.toLocaleString()}°C`]
         };
     };
 }
