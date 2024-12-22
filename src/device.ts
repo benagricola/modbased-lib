@@ -106,7 +106,7 @@ export class DeviceFactory {
         this.deduplicationFunctions.push(deduplicationFunction);
     }
 
-    static async discover(startAddress: number, addressCount: number, channel: ICommunicationChannel, definitionLoader: IDefinitionLoader): Promise<Device[]> {
+    static async discover(startAddress: number, addressCount: number, channel: ICommunicationChannel, definitionLoader: IDefinitionLoader): Promise<IDevice[]> {
         let devices = [];
         for (const discoveryFunction of this.discoveryFunctions) {
             devices.push(...await discoveryFunction(startAddress, addressCount, channel));
