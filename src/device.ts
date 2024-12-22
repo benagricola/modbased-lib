@@ -125,7 +125,9 @@ export class DeviceFactory {
     }
 }
 
-export type CommunicationProtocols = Map<Symbol, [string, ICommunicationProtocolMixin]>;
+export type CommunicationProtocols = {
+    [key: symbol]: [string, ICommunicationProtocolMixin];
+}
 
 export class Device implements IDevice {
     manufacturer: string = "Unknown";
@@ -134,7 +136,7 @@ export class Device implements IDevice {
 
     discoveryStatus: string = "";
 
-    protected protocols: CommunicationProtocols = new Map();
+    protected protocols: CommunicationProtocols = {};
 
     definitionLoader: IDefinitionLoader | null = null;
 
@@ -178,7 +180,7 @@ export class Device implements IDevice {
     }
 
     getCommunicationProtocol<T extends ICommunicationProtocolMixin>(symbol: symbol): T | undefined {
-        return this.protocols.get(symbol)?.[1] as T;
+        return this.protocols[symbol]?.[1] as T;
     }
 
     getCommunicationProtocols(): CommunicationProtocols {
