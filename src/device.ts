@@ -1,4 +1,4 @@
-import type { ICommunicationProtocolMixin, ICommunicationChannel, ICommunicationProtocol } from "./communication";
+import type { ICommunicationProtocolMixin, ICommunicationChannel, ICommunicationProtocol, CommunicationProtocolRecords } from "./communication";
 import type { IDefinitionLoader } from "./definition";
 
 // Protocol types
@@ -84,7 +84,7 @@ export interface IDevice {
     getRegisters(): TDeviceRegisters;
     getCoils(): TDeviceCoils;
     getCommunicationProtocol(symbol: Symbol): ICommunicationProtocolMixin | undefined;
-    getCommunicationProtocols(): CommunicationProtocols;
+    getCommunicationProtocols(): CommunicationProtocolRecords;
     setManufacturer(manufacturer: string): void;
     setModel(model: string): void;
     setDiscoveryStatus(status: string): void;
@@ -125,10 +125,6 @@ export class DeviceFactory {
     }
 }
 
-export type CommunicationProtocols = {
-    [key: symbol]: [string, ICommunicationProtocolMixin];
-}
-
 export class Device implements IDevice {
     manufacturer: string = "Unknown";
     model: string = "Unknown";
@@ -136,7 +132,7 @@ export class Device implements IDevice {
 
     discoveryStatus: string = "";
 
-    protected protocols: CommunicationProtocols = {};
+    protected protocols: CommunicationProtocolRecords = new Map();
 
     definitionLoader: IDefinitionLoader | null = null;
 
@@ -179,11 +175,11 @@ export class Device implements IDevice {
         return this.definitionLoader;
     }
 
-    getCommunicationProtocol<T extends ICommunicationProtocolMixin>(symbol: symbol): T | undefined {
-        return this.protocols[symbol]?.[1] as T;
+    getCommunicationProtocol<T extends ICommunicationProtocolMixin>(symbol: Symbol): T | undefined {
+        return this.protocols.get(symbol)?.protocol as T;
     }
 
-    getCommunicationProtocols(): CommunicationProtocols {
+    getCommunicationProtocols(): CommunicationProtocolRecords {
         return this.protocols;
     }
 }

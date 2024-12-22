@@ -48,6 +48,13 @@ export interface ICommunicationProtocolMixin {
     [CommunicationProtocolSymbol]: boolean;
 }
 
+export type CommunicationProtocolRecord = {
+    name: string,
+    protocol: ICommunicationProtocolMixin
+}
+
+export type CommunicationProtocolRecords = Map<Symbol, CommunicationProtocolRecord>;
+
 // Communication protocols are dependant on the device being communicated with.
 export interface ICommunicationProtocol {
     discover: (startAddress: number, addressCount: number) => Promise<IDevice[]>;
