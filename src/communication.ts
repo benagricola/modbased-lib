@@ -66,7 +66,6 @@ export interface ICommunicationProtocol {
 
 export interface ICommunicationChannel {
     setOptions: (options: ICommunicationChannelOptions) => void;
-    isOpen: () => boolean;
     open: () => void;
     request: (req: IRequest) => Promise<IResponse>;
     close: () => void;
